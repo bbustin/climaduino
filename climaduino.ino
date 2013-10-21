@@ -61,22 +61,6 @@ LiquidCrystal lcd(lcdRS, lcdEnable, lcdD4, lcdD5, lcdD6, lcdD7); // initialize t
 // Helper functions                                                //
 // =============================================================== //
 
-// Gets the set temperature from potentiometer
-// This will change in the future...
-
-//void changeTempSetPoint(void){ //callback to detect change in desired temperature
-//  int potentiometerReading = analogRead(pinTempChange);
-//  tempSetPointF = map(potentiometerReading, 0, 1023, 50, 90);
-//}
-//
-//void coolerTempSetPoint(void){ // callback to subtract 1 from tempSetPointF
-//  tempSetPointF -= 1;
-//}
-//
-//void warmerTempSetPoint(void){ // callback to add 1 to tempSetPointF
-//  ++tempSetPointF;
-//}
-
 // Reads back values for our settings from EEPROM and
 //// populates the proper global variables. If The EEPROM locations have
 //// not yet been set, then returns default values.
@@ -347,8 +331,7 @@ void setup()
   //wide and 2 lines tall
   pinMode(pinRelay, OUTPUT); //setting up pin for relay
   stateChangeMillis = millis(); // so that we automatically wait before turning on
-    // useful for cases where 
-  Serial.println("Initializing...");
+    // useful for cases where the power goes out while the compressor is running
   lcd.setCursor(0,0);
   lcd.print("Initializing..."); //print to LCD
 }
@@ -368,7 +351,6 @@ void loop(){
   }
   boolean stateChangeAllowed;
   Serial.print("temp set point: ");
-//  changeTempSetPoint(); // check for set point from potentiometer
   Serial.println(tempSetPointF);
   Serial.print("Operation Mode: ");
   Serial.println(operationMode);
