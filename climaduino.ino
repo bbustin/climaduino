@@ -138,6 +138,17 @@ void powerState(boolean state){
 
 // Reports total time since last state change in seconds
 int secondsSinceLastStateChange() {
+  // millis rolls over after a while if a rollover occurs,
+  //// reset the stateChangeMillis variable to the current millis()
+  //// count.
+  ////
+  //// This may lead the program to have the unit run for longer
+  //// or keep off for longer than the minRunTimeSeconds and minOffTimeSeconds
+  //// but this is probably ok since an overflow should only occur
+  //// once every 50 days according to http://arduino.cc/en/Reference/millis.
+  if (millis() < stateChangeMillis) {
+   stateChangeMillis = millis()
+  }
   int seconds = round((millis() - stateChangeMillis) / 1000);
   return seconds;
 }
@@ -289,7 +300,7 @@ void serialEvent() {
       }
       inputString = ""; // clear inputString
     }
-    if (inChar == '%') { // input to change humidity set pint
+    if (inChar == '%') { // input to change humidity set point
       if (inputString.length() <= 3){ // 2 digits and a %
         // remove last character and turn into an integer
         inputString = inputString.substring(0, inputString.length() - 1);
@@ -350,10 +361,13 @@ void loop(){
     ++tempSetPointF; // lower tempSetPointF by 1
   }
   boolean stateChangeAllowed;
-  Serial.print("temp set point: ");
-  Serial.println(tempSetPointF);
-  Serial.print("Operation Mode: ");
-  Serial.println(operationMode);
+  Serial.print("{\"parameters\":{\"temp\":");
+  Serial.print(tempSetPointF);
+  Serial.print(",\"humidity\":");
+  Serial.print(humiditySetPoint);
+  Serial.print(",\"mode\":");
+  Serial.print(operationMode);
+  Serial.println("}}");
   lcd.clear();
   // display setpoints
   lcd.setCursor(0,0); //move to first character of first line (lines start at 0)
@@ -381,10 +395,11 @@ void loop(){
   }
   averageReadings(); // get the average readings
   
-  Serial.print("Temperature: "),
+  Serial.print("{\"readings\":{\"temp\":"),
   Serial.print(averageTemp);
-  Serial.print(", Humidity: ");
-  Serial.println(averageHumidity);
+  Serial.print(",\"humidity\":");
+  Serial.print(averageHumidity);
+  Serial.println("}}");
   
   if (operationMode == 0 || operationMode == 1){ // operation modes that involve the compressor
     stateChangeAllowed = shortCycleProtection();
@@ -393,16 +408,25 @@ void loop(){
     stateChangeAllowed = true;
   }
   
-  Serial.print("State change allowed? ");
-  
+  Serial.print("{\"status\":{");
+  Serial.print("\"state_change_allowed\":\"");
   if (stateChangeAllowed){
-    Serial.println("Yes");
+    Serial.print("Y");
     thermostat();
   }
   else {
-    Serial.println("No");
+    Serial.print("N");
   }
+  Serial.print("\",");
   
+  Serial.print("\"system_running\":\"");
+  if (currentlyRunning){
+    Serial.print("Y");
+  }
+  else {
+    Serial.print("N");
+  }
+  Serial.println("\"}}");
   // Update EEPROM with any changes to operating parameters
   updateEEPROMValues();
 }
