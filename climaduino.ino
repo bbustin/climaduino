@@ -147,7 +147,7 @@ int secondsSinceLastStateChange() {
   //// but this is probably ok since an overflow should only occur
   //// once every 50 days according to http://arduino.cc/en/Reference/millis.
   if (millis() < stateChangeMillis) {
-   stateChangeMillis = millis()
+   stateChangeMillis = millis();
   }
   int seconds = round((millis() - stateChangeMillis) / 1000);
   return seconds;
