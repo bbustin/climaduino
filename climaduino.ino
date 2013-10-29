@@ -426,6 +426,10 @@ void loop(){
   else {
     Serial.print("N");
   }
+  Serial.print("\",\"lastStateChange\":\"");
+  Serial.print(stateChangeMillis);
+  Serial.print("\",\"millis\":\"");
+  Serial.print(millis());
   Serial.println("\"}}");
   // Update EEPROM with any changes to operating parameters
   updateEEPROMValues();
