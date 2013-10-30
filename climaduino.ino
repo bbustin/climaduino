@@ -361,13 +361,6 @@ void loop(){
     ++tempSetPointF; // lower tempSetPointF by 1
   }
   boolean stateChangeAllowed;
-  Serial.print("{\"parameters\":{\"temp\":");
-  Serial.print(tempSetPointF);
-  Serial.print(",\"humidity\":");
-  Serial.print(humiditySetPoint);
-  Serial.print(",\"mode\":");
-  Serial.print(operationMode);
-  Serial.println("}}");
   lcd.clear();
   // display setpoints
   lcd.setCursor(0,0); //move to first character of first line (lines start at 0)
@@ -395,20 +388,25 @@ void loop(){
   }
   averageReadings(); // get the average readings
   
-  Serial.print("{\"readings\":{\"temp\":"),
-  Serial.print(averageTemp);
-  Serial.print(",\"humidity\":");
-  Serial.print(averageHumidity);
-  Serial.println("}}");
-  
   if (operationMode == 0 || operationMode == 1){ // operation modes that involve the compressor
     stateChangeAllowed = shortCycleProtection();
   }
   else { // all other operation modes
     stateChangeAllowed = true;
   }
-  
-  Serial.print("{\"status\":{");
+  Serial.print("{\"readings\":{\"temp\":"),
+  Serial.print(averageTemp);
+  Serial.print(",\"humidity\":");
+  Serial.print(averageHumidity);
+  Serial.print("},");
+  Serial.print("\"parameters\":{\"temp\":");
+  Serial.print(tempSetPointF);
+  Serial.print(",\"humidity\":");
+  Serial.print(humiditySetPoint);
+  Serial.print(",\"mode\":");
+  Serial.print(operationMode);
+  Serial.print("},");
+  Serial.print("\"status\":{");
   Serial.print("\"state_change_allowed\":\"");
   if (stateChangeAllowed){
     Serial.print("Y");
