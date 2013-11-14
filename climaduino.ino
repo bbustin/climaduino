@@ -149,7 +149,7 @@ int secondsSinceLastStateChange() {
   if (millis() < stateChangeMillis) {
    stateChangeMillis = millis();
   }
-  int seconds = round((millis() - stateChangeMillis) / 1000);
+  float seconds = (millis() - stateChangeMillis) / 1000;
   return seconds;
 }
 
