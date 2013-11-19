@@ -16,8 +16,8 @@ const int tempHysteresis = 2;
 const int humidityHysteresis = 2;
 // limits
 const int humidityOverCooling = 5; // degrees cooler than setpoint allowed to dehumidify
-const int minRunTimeSeconds = 600; // cooling minimum runtime allowed (prevent short cycles)
-const int minOffTimeSeconds = 180; //cooling minimum off time before can run again (protect compressor)
+const int minRunTimeMillis = 600000; // cooling minimum runtime allowed (prevent short cycles)
+const int minOffTimeMillis = 180000; //cooling minimum off time before can run again (protect compressor)
 // parameters for averaging readings
 const int numberOfReadings = 2; // how many readings to average
 const int delayBetweenReadingsMillis = 2000; // how long to wait between readings (DHT22 needs 2 seconds)
@@ -137,7 +137,25 @@ void powerState(boolean state){
 }
 
 // Reports total time since last state change in seconds
-int secondsSinceLastStateChange() {
+// REPLACING WITH MILLIS SINCE LAST STATE CHANGE
+//int secondsSinceLastStateChange() {
+//  // millis rolls over after a while if a rollover occurs,
+//  //// reset the stateChangeMillis variable to the current millis()
+//  //// count.
+//  ////
+//  //// This may lead the program to have the unit run for longer
+//  //// or keep off for longer than the minRunTimeSeconds and minOffTimeSeconds
+//  //// but this is probably ok since an overflow should only occur
+//  //// once every 50 days according to http://arduino.cc/en/Reference/millis.
+//  if (millis() < stateChangeMillis) {
+//   stateChangeMillis = millis();
+//  }
+//  float seconds = (millis() - stateChangeMillis) / 1000;
+//  return seconds;
+//}
+
+// Reports total time since last state change in millis
+unsigned long millisSinceLastStateChange() {
   // millis rolls over after a while if a rollover occurs,
   //// reset the stateChangeMillis variable to the current millis()
   //// count.
@@ -149,8 +167,8 @@ int secondsSinceLastStateChange() {
   if (millis() < stateChangeMillis) {
    stateChangeMillis = millis();
   }
-  float seconds = (millis() - stateChangeMillis) / 1000;
-  return seconds;
+  unsigned long millis_in_state = millis() - stateChangeMillis;
+  return millis_in_state;
 }
 
 // Short cycle protection
@@ -159,10 +177,10 @@ int secondsSinceLastStateChange() {
 ////
 //// returns true if state change is ok, returns false if it is not
 boolean shortCycleProtection(){
-  int totalTimeInState = secondsSinceLastStateChange();
+  int totalTimeInState = millisSinceLastStateChange();
   switch(currentlyRunning){
     case false:
-      if (totalTimeInState > minOffTimeSeconds){
+      if (totalTimeInState > minOffTimeMillis){
         return true;
       }
       else {
@@ -170,7 +188,7 @@ boolean shortCycleProtection(){
       }
       break;
     case true:
-      if (totalTimeInState > minRunTimeSeconds){
+      if (totalTimeInState > minRunTimeMillis){
         return true;
       }
       else {
