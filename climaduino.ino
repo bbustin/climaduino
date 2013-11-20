@@ -16,8 +16,8 @@ const int tempHysteresis = 2;
 const int humidityHysteresis = 2;
 // limits
 const int humidityOverCooling = 5; // degrees cooler than setpoint allowed to dehumidify
-const int minRunTimeMillis = 600000; // cooling minimum runtime allowed (prevent short cycles)
-const int minOffTimeMillis = 180000; //cooling minimum off time before can run again (protect compressor)
+const unsigned long minRunTimeMillis = 600000; // cooling minimum runtime allowed (prevent short cycles) - unsigned long to match millis datatype
+const unsigned long minOffTimeMillis = 180000; //cooling minimum off time before can run again (protect compressor) - unsigned long to match millis datatype
 // parameters for averaging readings
 const int numberOfReadings = 2; // how many readings to average
 const int delayBetweenReadingsMillis = 2000; // how long to wait between readings (DHT22 needs 2 seconds)
@@ -177,7 +177,7 @@ unsigned long millisSinceLastStateChange() {
 ////
 //// returns true if state change is ok, returns false if it is not
 boolean shortCycleProtection(){
-  int totalTimeInState = millisSinceLastStateChange();
+  unsigned long totalTimeInState = millisSinceLastStateChange();
   switch(currentlyRunning){
     case false:
       if (totalTimeInState > minOffTimeMillis){
