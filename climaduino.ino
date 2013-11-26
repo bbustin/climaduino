@@ -48,7 +48,7 @@ float averageTemp = NAN; // average temperature
 float averageHumidity = NAN; // average humidity
 boolean currentlyRunning = false; // track whether system is currently running
 unsigned long stateChangeMillis; // time in millis when system either turned on or off
-int operationMode = 0; // 0 cooling + humidity, 1 humidity control, 5 heating
+int operationMode = 0; // 0 cooling + humidity, 1 humidity control, 5 heating, 9 off
 String inputString; // input from Serial
 
 // =============================================================== //
@@ -289,6 +289,9 @@ void thermostat(){
       else {
        powerState(false); 
       }
+      break;
+     default: //if mode is unrecognized, power should be off
+       powerState(false);
   }
 }
 
