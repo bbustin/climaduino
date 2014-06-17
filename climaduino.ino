@@ -14,6 +14,12 @@
 // =============================================================== //
 const int DEVICEID = 1; //Device identifier so it can be distinguished from other zones
 
+// Arduino pins to trip relays
+const int pinCool = 7; //Relay1 on Seeeduino v2.0 shield
+const int pinHeat = 6; //Relay2 on Seeeduino v2.0 shield
+const int pinFan = 5; //Relay3 on Seeeduino v2.0 shield
+const int pinOther = 4; //Relay1 on Seeeduino v2.0 shield - have it here to make sure not to use this pin for anything else as it will keep tripping relay and clicking
+
 // hysteresis settings (the amount above or below a threshold that is allowed)
 const int tempHysteresis = 2;
 const int humidityHysteresis = 2;
