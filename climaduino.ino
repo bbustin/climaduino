@@ -5,12 +5,15 @@
 // http://www.engblaze.com/microcontroller-tutorial-avr-and-arduino-timer-interrupts/
 // http://www.milesburton.com/?title=Dallas_Temperature_Control_Library
 #include <DHT.h>
-#include <LiquidCrystal.h>
 #include <EEPROM.h>
+#include <SPI.h>
+#include <Ethernet.h>
 
 // =============================================================== //
 // statically defined variables - these can not be changed later   //
 // =============================================================== //
+const int DEVICEID = 1; //Device identifier so it can be distinguished from other zones
+
 // hysteresis settings (the amount above or below a threshold that is allowed)
 const int tempHysteresis = 2;
 const int humidityHysteresis = 2;
@@ -22,21 +25,13 @@ const unsigned long minOffTimeMillis = 180000; //cooling minimum off time before
 const int numberOfReadings = 2; // how many readings to average
 const int delayBetweenReadingsMillis = 2000; // how long to wait between readings (DHT22 needs 2 seconds)
 // pins to use
-const int pinRelay = 10; // pin for relay
+const int pinRelay = 8; // pin for relay
 const int pinSensor = 9; // pin for temperature and humidity (DHT-22)
-//const int pinTempChange = A1; // pin for temp setting potentiometer
-const int pinCooler = 11;
-// pinCooler - button to trigger 1 degree cooler is 2. interrupt 0
-//// hardcoded to pin 2 on the Uno http://arduino.cc/en/Reference/attachInterrupt
-const int pinWarmer = 12;
-// pinWarmer - button to trigger 1 degree hotter is 3. interrupt 1
-//// hardcoded to pin 3 on the Uno http://arduino.cc/en/Reference/attachInterrupt
-const int lcdRS = 3;
-const int lcdEnable = 4;
-const int lcdD4 = 5;
-const int lcdD5 = 6;
-const int lcdD6 = 7;
-const int lcdD7 = 8;
+
+byte mac[] = { 0x48, 0xC2, 0xA1, 0xF3, 0x8D, 0xB7 }; // if you have multiple climaduino zones, they must have unique MAC addresses
+IPAddress ip(192, 168, 1, 150);
+IPAddress controller_ip(192, 168, 2, 5); // ip address of the web controller, note: you may want to statically assign the Controller's address.
+const int controller_port = 80;
 
 // =============================================================== //
 // Global variables                                                //
@@ -55,7 +50,7 @@ String inputString; // input from Serial
 // Global objects                                                  //
 // =============================================================== //
 DHT dht(pinSensor, DHT22); // set up object for DHT22 temperature sensor
-LiquidCrystal lcd(lcdRS, lcdEnable, lcdD4, lcdD5, lcdD6, lcdD7); // initialize the LCD display
+EthernetClient client; // set up object for ethernet client
 
 // =============================================================== //
 // Helper functions                                                //
@@ -120,8 +115,6 @@ void powerState(boolean state){
             digitalWrite(pinRelay, LOW);
             currentlyRunning = false; //set global variable that keeps track of system status
             stateChangeMillis = millis();
-            lcd.begin(16, 2); //reset the LCD since it seems to mess up after the AC is turned on
-            lcd.print("System Off");
           }
           break;
         case true:
@@ -129,8 +122,6 @@ void powerState(boolean state){
             digitalWrite(pinRelay, HIGH);
             currentlyRunning = true; //set global variable that keeps track of system status
             stateChangeMillis = millis();
-            lcd.begin(16, 2); //reset the LCD since it seems to mess up after the AC is turned on
-            lcd.print("System On");
           }
           break;
   }
@@ -354,59 +345,28 @@ void setup()
   readEEPROMValues();
   Serial.begin(9600);  //Start the Serial connection with the computer
   //to view the result open the Serial monitor
+  Serial.println("Connecting to ethernet network using DHCP");
+  if (Ethernet.begin(mac) == 1) { //try to connect first using DHCP. If that fails, use a fixed IP.
+    Serial.print("SUCCESS. IP: ");
+    Serial.println(Ethernet.localIP());
+  }
+  else {
+    // DHCP failed, so use a fixed IP address:
+    Serial.print("FAILED. Using IP: ");
+    Serial.println(ip);
+    Ethernet.begin(mac, ip);
+  }
   dht.begin(); //start up DHT library;
-  pinMode(pinCooler,INPUT);            // default mode is INPUT - to lower tempSetPointF
-  pinMode(pinWarmer,INPUT);            // default mode is INPUT - to raise tempSetPointF
-  digitalWrite(pinCooler, HIGH);     // Turn on the internal pull-up resistor
-  digitalWrite(pinWarmer, HIGH);    // Turn on the internal pull-up resistor
-  lcd.begin(16, 2); //let the LCD library know screen is 16 characters
-  //wide and 2 lines tall
   pinMode(pinRelay, OUTPUT); //setting up pin for relay
   stateChangeMillis = millis(); // so that we automatically wait before turning on
     // useful for cases where the power goes out while the compressor is running
-  lcd.setCursor(0,0);
-  lcd.print("Initializing..."); //print to LCD
 }
 
 // =============================================================== //
 // Main program loop                                               //
 // =============================================================== //
 void loop(){
-  // check if cooler or warmer buttons being pressed, LOW state (using interrupts did not work well)
-  int pinCoolerStatus = digitalRead(pinCooler);
-  int pinWarmerStatus = digitalRead(pinWarmer);
-  if (pinCoolerStatus == 0){
-    --tempSetPointF; // lower tempSetPointF by 1
-  }
-  if (pinWarmerStatus == 0){
-    ++tempSetPointF; // lower tempSetPointF by 1
-  }
   boolean stateChangeAllowed;
-  lcd.clear();
-  // display setpoints
-  lcd.setCursor(0,0); //move to first character of first line (lines start at 0)
-  // although not necessary the first pass through,
-  // is necessary on subsequent passes
-  lcd.print("Set:    "); //print to LCD
-  lcd.print(tempSetPointF);
-  lcd.print("F, ");
-  lcd.print(humiditySetPoint);
-  lcd.print("%");
-  // display actual rounded readings
-  // will be behind by however long it takes to get average readings
-  // this is because the DHT library seems to get in the way of writing to the LCD
-  // and I want setPoint adjustments to show up quicker onscreen
-  lcd.setCursor(0,1); //move to first character of second line (lines start at 0)
-  lcd.print("Actual: ");
-  if ( isnan(averageTemp) || isnan(averageHumidity)) {
-    lcd.print("unknown");
-  }
-  else {
-    lcd.print(round(averageTemp));
-    lcd.print("F, ");
-    lcd.print(round(averageHumidity));
-    lcd.print("%");
-  }
   averageReadings(); // get the average readings
   
   if (operationMode == 0 || operationMode == 1){ // operation modes that involve the compressor
@@ -415,41 +375,119 @@ void loop(){
   else { // all other operation modes
     stateChangeAllowed = true;
   }
-  Serial.print("{\"readings\":{\"temp\":"),
-  Serial.print(averageTemp);
-  Serial.print(",\"humidity\":");
-  Serial.print(averageHumidity);
-  Serial.print("},");
-  Serial.print("\"parameters\":{\"temp\":");
-  Serial.print(tempSetPointF);
-  Serial.print(",\"humidity\":");
-  Serial.print(humiditySetPoint);
-  Serial.print(",\"mode\":");
-  Serial.print(operationMode);
-  Serial.print("},");
-  Serial.print("\"status\":{");
-  Serial.print("\"state_change_allowed\":\"");
-  if (stateChangeAllowed){
-    Serial.print("Y");
-    thermostat();
-  }
-  else {
-    Serial.print("N");
-  }
-  Serial.print("\",");
+  // Need to build a string of JSON so we can get the content-length. To ad the floats in we need
+  // to convert them th char and then to string...
+  // convert readings to char
+  char char_averageTemp[6];
+  dtostrf(averageTemp, 1, 2, char_averageTemp);
   
-  Serial.print("\"system_running\":\"");
-  if (currentlyRunning){
-    Serial.print("Y");
+  char char_averageHumidity[6];
+    dtostrf(averageHumidity, 1, 2, char_averageHumidity);
+  
+  String json_string;
+  json_string = "{\"readings\":{\"temp\":" + String(char_averageTemp) + ",\"humidity\":" + String(char_averageHumidity) + "}," +
+                  "\"parameters\":{\"temp\":" + tempSetPointF + ",\"humidity\":" + humiditySetPoint + ",\"mode\":" + operationMode + "}," +
+                  "\"status\":{" + "\"state_change_allowed\":\"";
+  if (stateChangeAllowed){
+     json_string += "Y";
+      thermostat(); //runs the thermostat logic
   }
   else {
-    Serial.print("N");
+      json_string += "N";
   }
-  Serial.print("\",\"lastStateChange\":\"");
-  Serial.print(stateChangeMillis);
-  Serial.print("\",\"millis\":\"");
-  Serial.print(millis());
-  Serial.println("\"}}");
+  json_string += "\",\"system_running\":\"";
+  if (currentlyRunning){
+      json_string += "Y";
+  }
+  else {
+      json_string += "N";
+  }
+  json_string += "\",\"lastStateChange\":\"" + String(stateChangeMillis) + "\",\"millis\":\"" + String(millis()) + "\"}}";
+  Serial.println(json_string);
+  // connect to controller
+  if (client.connect(controller_ip, controller_port)) {
+    Serial.println("connected to controller");
+    client.print("POST /settings/climaduino/");
+    client.print(DEVICEID);
+    client.println(" HTTP/1.0");
+    client.print("User-Agent: Climaduino Remote Zone ");
+    client.println(DEVICEID);
+    client.print("Content-Length: "); 
+    client.println(json_string.length());
+    client.println("Connection: close");
+    client.println("Content-Type: application/json");
+    client.println(); //blank line between headers and body of request needed
+    client.println(json_string);
+    delay(500); //give the controller enough time to formulate a response
+    Serial.println("Controller response: ");
+    boolean capture_response = false; //used to know when to start capturing the response data. We want to ignore the headers
+    while (client.available() > 0) {
+      char c = client.read();
+      if (capture_response == true) {
+        // add it to the inputString:
+        inputString += c;
+         if (c == 'F') { // input to change temperature
+          if (inputString.length() <= 3){ // 2 digits and an F
+            // remove last character and turn into a float
+            inputString = inputString.substring(0, 2);
+            char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
+            inputString.toCharArray(inputCharArray, 3);
+            // provide some output on Serial
+            Serial.print("Temp ");
+            Serial.print(tempSetPointF);
+            Serial.print(" => ");
+            Serial.println(inputCharArray);
+            // change the set point
+            tempSetPointF = (float)atoi(inputCharArray);
+          }
+          inputString = ""; // clear inputString
+        }
+        if (c == '%') { // input to change humidity set point
+          if (inputString.length() <= 3){ // 2 digits and a %
+            // remove last character and turn into an integer
+            inputString = inputString.substring(0, inputString.length() - 1);
+            //char inputCharArray[inputString.length() + 1];
+            char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
+            inputString.toCharArray(inputCharArray, 3);
+            // provide some output on Serial
+            Serial.print("Humidity ");
+            Serial.print(humiditySetPoint);
+            Serial.print(" => ");
+            Serial.println(inputCharArray);
+            // change the set point
+            humiditySetPoint = atoi(inputCharArray);
+          }
+          inputString = ""; // clear inputString
+        }
+        if (c == 'M') { // input to change operation mode
+          if (inputString.length() <= 2){ // 1 digits and an M
+            // remove last character and turn into an integer
+            inputString = inputString.substring(0, inputString.length() - 1);
+            //char inputCharArray[inputString.length() + 1];
+            char inputCharArray[2]; //only allow values with 1 digit (and 1 null for atoi)
+            inputString.toCharArray(inputCharArray, 2);
+            // provide some output on Serial
+            Serial.print("Mode ");
+            Serial.print(operationMode);
+            Serial.print(" => ");
+            Serial.println(inputCharArray);
+            // change the mode
+            operationMode = atoi(inputCharArray);
+           }
+          inputString = ""; // clear inputString
+        }
+      } 
+      if (capture_response == false) {
+        if (c == '^') {
+          capture_response = true;
+        }
+      }         
+    }
+    client.stop();
+  }
+  else {
+    Serial.println("connection to controller failed");
+  }
   // Update EEPROM with any changes to operating parameters
   updateEEPROMValues();
 }
