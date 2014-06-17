@@ -8,6 +8,10 @@
 #include <EEPROM.h>
 #include <SPI.h>
 #include <Ethernet.h>
+#include <Thermostat.h>
+#include <aJSON.h>
+#include <MemoryFree.h>
+#include <avr/wdt.h> //for WatchDog timer
 
 // =============================================================== //
 // statically defined variables - these can not be changed later   //
@@ -31,7 +35,6 @@ const unsigned long minOffTimeMillis = 180000; //cooling minimum off time before
 const int numberOfReadings = 2; // how many readings to average
 const int delayBetweenReadingsMillis = 2000; // how long to wait between readings (DHT22 needs 2 seconds)
 // pins to use
-const int pinRelay = 8; // pin for relay
 const int pinSensor = 9; // pin for temperature and humidity (DHT-22)
 
 byte mac[] = { 0x48, 0xC2, 0xA1, 0xF3, 0x8D, 0xB7 }; // if you have multiple climaduino zones, they must have unique MAC addresses
@@ -42,7 +45,7 @@ const int controller_port = 80;
 // =============================================================== //
 // Global variables                                                //
 // =============================================================== //
-volatile int tempSetPointF; // temperature set point. Volatile so it can be changed from within an
+int tempSetPointF; // temperature set point.
 //// Interrupt Service Routine (ISR)
 int humiditySetPoint; // percent relative humidity
 float averageTemp = NAN; // average temperature
@@ -57,10 +60,30 @@ String inputString; // input from Serial
 // =============================================================== //
 DHT dht(pinSensor, DHT22); // set up object for DHT22 temperature sensor
 EthernetClient client; // set up object for ethernet client
+Thermostat thermostat(pinCool, pinHeat, pinFan, false); // Climaduino thermostat object
 
 // =============================================================== //
 // Helper functions                                                //
 // =============================================================== //
+// Sets up watchdog timer
+void watchdogSetup(void) {
+  cli();
+  wdt_reset();
+  /*
+  WDTCSR configuration:
+  WDIE = 1: Interrupt Enable 
+  WDE = 1 :Reset Enable
+  See table for time-out variations: 
+  WDP3 = 1 :For 8000ms Time-out 
+  WDP2 = 0 :For 8000ms Time-out 
+  WDP1 = 0 :For 8000ms Time-out 
+  WDP0 = 1 :For 8000ms Time-out
+  */
+  // Enter Watchdog Configuration mode: WDTCSR |= (1<<WDCE) | (1<<WDE);
+  // Set Watchdog settings:
+  WDTCSR = (1<<WDIE) | (1<<WDE) |
+  (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);
+  sei(); }
 
 // Reads back values for our settings from EEPROM and
 //// populates the proper global variables. If The EEPROM locations have
@@ -71,7 +94,7 @@ EthernetClient client; // set up object for ethernet client
 ////// 1 - tempSetPointF (default 78)
 ////// 2 - humiditySetPoint (default 55)
 void readEEPROMValues() {
-  // get operationMode from 0
+  // get operationMode from 0, tempSetPointF from 1, and humiditySetPoint from 2
   operationMode = EEPROM.read(0);
   tempSetPointF = EEPROM.read(1);
   humiditySetPoint = EEPROM.read(2);
@@ -106,94 +129,6 @@ void updateEEPROMValues() {
   }
   if (humiditySetPoint != EEPROM.read(2)) {
     EEPROM.write(2, humiditySetPoint);
-  }
-}
-
-// Changes the power state (if needed)
-//// updates the stateChangeMillis and currentlyRunning global variables when state is changed
-////
-//// passing in true means turn on
-//// passing in false means turn off
-void powerState(boolean state){
-  switch(state){
-        case false:
-          if (currentlyRunning == true) {
-            digitalWrite(pinRelay, LOW);
-            currentlyRunning = false; //set global variable that keeps track of system status
-            stateChangeMillis = millis();
-          }
-          break;
-        case true:
-          if (currentlyRunning == false) {
-            digitalWrite(pinRelay, HIGH);
-            currentlyRunning = true; //set global variable that keeps track of system status
-            stateChangeMillis = millis();
-          }
-          break;
-  }
-}
-
-// Reports total time since last state change in seconds
-// REPLACING WITH MILLIS SINCE LAST STATE CHANGE
-//int secondsSinceLastStateChange() {
-//  // millis rolls over after a while if a rollover occurs,
-//  //// reset the stateChangeMillis variable to the current millis()
-//  //// count.
-//  ////
-//  //// This may lead the program to have the unit run for longer
-//  //// or keep off for longer than the minRunTimeSeconds and minOffTimeSeconds
-//  //// but this is probably ok since an overflow should only occur
-//  //// once every 50 days according to http://arduino.cc/en/Reference/millis.
-//  if (millis() < stateChangeMillis) {
-//   stateChangeMillis = millis();
-//  }
-//  float seconds = (millis() - stateChangeMillis) / 1000;
-//  return seconds;
-//}
-
-// Reports total time since last state change in millis
-unsigned long millisSinceLastStateChange() {
-  // millis rolls over after a while if a rollover occurs,
-  //// reset the stateChangeMillis variable to the current millis()
-  //// count.
-  ////
-  //// This may lead the program to have the unit run for longer
-  //// or keep off for longer than the minRunTimeSeconds and minOffTimeSeconds
-  //// but this is probably ok since an overflow should only occur
-  //// once every 50 days according to http://arduino.cc/en/Reference/millis.
-  if (millis() < stateChangeMillis) {
-   stateChangeMillis = millis();
-  }
-  unsigned long millis_in_state = millis() - stateChangeMillis;
-  return millis_in_state;
-}
-
-// Short cycle protection
-//// Protects compressor by not turning it back on until it has been off for minOffTimeSeconds
-//// Keeps compressor run cycles from being too short by running at least minRunTimeSeconds
-////
-//// returns true if state change is ok, returns false if it is not
-boolean shortCycleProtection(){
-  unsigned long totalTimeInState = millisSinceLastStateChange();
-  switch(currentlyRunning){
-    case false:
-      if (totalTimeInState > minOffTimeMillis){
-        return true;
-      }
-      else {
-        return false;
-      }
-      break;
-    case true:
-      if (totalTimeInState > minRunTimeMillis){
-        return true;
-      }
-      else {
-        return false;
-      }
-      break;
-    default:
-      return false;
   }
 }
 
@@ -237,58 +172,90 @@ float averageReadings(){
   }
 }
 
-// Thermostat
-//// implements thermostat logic
-////
-//// uses the following static variables:
-//// humiditySetPoint, tempHysteresis, humidityHysteresis, humidityOverCooling
-////
-//// uses the following variables uodated by helper functions and ISRs:
-//// averageTemp, averageHumidity, currentlyRunning, operationMode
-void thermostat(){
-  // create local variables for temp and humidity set points so we can modify temporarily
-  int _setPointF = tempSetPointF; 
-  int _humiditySetPoint = humiditySetPoint;
-  
-  // hysteresis considerations if system is not running
-  if (!currentlyRunning) {
-    _humiditySetPoint += humidityHysteresis; // humidity is allowed to be over by humidity hysteresis
-    // for temperature hysteresis settings we need to check whether heating or cooling
-    switch(operationMode){
-    case 0: //cooling mode
-      _setPointF += tempHysteresis; // temperature is allowed to be over setPoint by tempHysteresis
-      break;
-    case 5: //heating mode
-      _setPointF -= tempHysteresis; // temperature is allowed to be under setPoint by tempHysteresis
-      break;
+void sendJson(char *outputJson){
+    // connect to controller, send JSON, get response back and deal with it 
+  if (client.connect(controller_ip, controller_port)) {
+    Serial.println(F("connected to controller"));
+    client.print(F("POST /settings/climaduino/"));
+    client.print(DEVICEID);
+    client.println(F(" HTTP/1.0"));
+    client.print(F("User-Agent: Climaduino Remote Zone "));
+    client.println(DEVICEID);
+    client.print(F("Content-Length: ")); 
+    client.println(strlen(outputJson));
+    client.println(F("Connection: close"));
+    client.println(F("Content-Type: application/json"));
+    client.println(); //blank line between headers and body of request needed
+    client.println(outputJson);
+    delay(500); //give the controller enough time to formulate a response
+    Serial.println(F("Controller response: "));
+    boolean capture_response = false; //used to know when to start capturing the response data. We want to ignore the headers
+    while (client.available() > 0) {
+      char c = client.read();
+      if (capture_response == true) {
+        // add it to the inputString:
+        inputString += c;
+         if (c == 'F') { // input to change temperature
+          if (inputString.length() <= 3){ // 2 digits and an F
+            // remove last character and turn into a float
+            inputString = inputString.substring(0, 2);
+            char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
+            inputString.toCharArray(inputCharArray, 3);
+            // provide some output on Serial
+            Serial.print("Temp ");
+            Serial.print(tempSetPointF);
+            Serial.print(" => ");
+            Serial.println(inputCharArray);
+            // change the set point
+            tempSetPointF = (float)atoi(inputCharArray);
+          }
+          inputString = ""; // clear inputString
+        }
+        if (c == '%') { // input to change humidity set point
+          if (inputString.length() <= 3){ // 2 digits and a %
+            // remove last character and turn into an integer
+            inputString = inputString.substring(0, inputString.length() - 1);
+            //char inputCharArray[inputString.length() + 1];
+            char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
+            inputString.toCharArray(inputCharArray, 3);
+            // provide some output on Serial
+            Serial.print(F("Humidity "));
+            Serial.print(humiditySetPoint);
+            Serial.print(" => ");
+            Serial.println(inputCharArray);
+            // change the set point
+            humiditySetPoint = atoi(inputCharArray);
+          }
+          inputString = ""; // clear inputString
+        }
+        if (c == 'M') { // input to change operation mode
+          if (inputString.length() <= 2){ // 1 digits and an M
+            // remove last character and turn into an integer
+            inputString = inputString.substring(0, inputString.length() - 1);
+            //char inputCharArray[inputString.length() + 1];
+            char inputCharArray[2]; //only allow values with 1 digit (and 1 null for atoi)
+            inputString.toCharArray(inputCharArray, 2);
+            // provide some output on Serial
+            Serial.print(F("Mode "));
+            Serial.print(operationMode);
+            Serial.print(F(" => "));
+            Serial.println(inputCharArray);
+            // change the mode
+            operationMode = atoi(inputCharArray);
+           }
+          inputString = ""; // clear inputString
+        }
+      } 
+      if (capture_response == false) {
+        if (c == '^') {
+          capture_response = true;
+        }
+      }         
     }
+    client.stop();
   }
-  // Actions to take for each mode
-  switch (operationMode){
-    case 0: // coolimg mode
-      // first deal with humidity if too high, adjust _setPointF by humidityOverCooling
-      if (averageHumidity > _humiditySetPoint) {
-       _setPointF -= humidityOverCooling; 
-      }
-      // check if temperature is higher than tempSetPoint
-      if (averageTemp > _setPointF) {
-        powerState(true);
-      }
-      else {
-       powerState(false); 
-      }
-      break;
-    case 1: // humidity control mode
-      // check if humidity is higher than setpoint
-      if (averageHumidity > _humiditySetPoint) {
-        powerState(true);
-      }
-      else {
-       powerState(false); 
-      }
-      break;
-     default: //if mode is unrecognized, power should be off
-       powerState(false);
+  else {
+    Serial.println(F("connection to controller failed"));
   }
 }
 
@@ -351,149 +318,45 @@ void setup()
   readEEPROMValues();
   Serial.begin(9600);  //Start the Serial connection with the computer
   //to view the result open the Serial monitor
-  Serial.println("Connecting to ethernet network using DHCP");
+  Serial.println(F("Connecting to Ethernet network using DHCP"));
   if (Ethernet.begin(mac) == 1) { //try to connect first using DHCP. If that fails, use a fixed IP.
-    Serial.print("SUCCESS. IP: ");
+    Serial.print(F("SUCCESS. IP: "));
     Serial.println(Ethernet.localIP());
   }
   else {
     // DHCP failed, so use a fixed IP address:
-    Serial.print("FAILED. Using IP: ");
+    Serial.print(F("FAILED. Using IP: "));
     Serial.println(ip);
     Ethernet.begin(mac, ip);
   }
+  //Taking the values defined above in the sketch and applying them to the Thermostat object
+  thermostat.tempHysteresis = tempHysteresis;
+  thermostat.humidityHysteresis = humidityHysteresis;
+  thermostat.humidityOverCooling = humidityOverCooling;
+  thermostat.minRunTimeMillis = minRunTimeMillis;
+  thermostat.minOffTimeMillis = minOffTimeMillis;
   dht.begin(); //start up DHT library;
-  pinMode(pinRelay, OUTPUT); //setting up pin for relay
-  stateChangeMillis = millis(); // so that we automatically wait before turning on
-    // useful for cases where the power goes out while the compressor is running
 }
 
 // =============================================================== //
 // Main program loop                                               //
 // =============================================================== //
 void loop(){
-  boolean stateChangeAllowed;
+  wdt_reset(); //reset watchdog timer
+  thermostat.mode = operationMode;
+  thermostat.tempSetPoint = tempSetPointF;
+  thermostat.humiditySetPoint = humiditySetPoint;
   averageReadings(); // get the average readings
-  
-  if (operationMode == 0 || operationMode == 1){ // operation modes that involve the compressor
-    stateChangeAllowed = shortCycleProtection();
-  }
-  else { // all other operation modes
-    stateChangeAllowed = true;
-  }
-  // Need to build a string of JSON so we can get the content-length. To ad the floats in we need
-  // to convert them th char and then to string...
-  // convert readings to char
-  char char_averageTemp[6];
-  dtostrf(averageTemp, 1, 2, char_averageTemp);
-  
-  char char_averageHumidity[6];
-    dtostrf(averageHumidity, 1, 2, char_averageHumidity);
-  
-  String json_string;
-  json_string = "{\"readings\":{\"temp\":" + String(char_averageTemp) + ",\"humidity\":" + String(char_averageHumidity) + "}," +
-                  "\"parameters\":{\"temp\":" + tempSetPointF + ",\"humidity\":" + humiditySetPoint + ",\"mode\":" + operationMode + "}," +
-                  "\"status\":{" + "\"state_change_allowed\":\"";
-  if (stateChangeAllowed){
-     json_string += "Y";
-      thermostat(); //runs the thermostat logic
-  }
-  else {
-      json_string += "N";
-  }
-  json_string += "\",\"system_running\":\"";
-  if (currentlyRunning){
-      json_string += "Y";
-  }
-  else {
-      json_string += "N";
-  }
-  json_string += "\",\"lastStateChange\":\"" + String(stateChangeMillis) + "\",\"millis\":\"" + String(millis()) + "\"}}";
-  Serial.println(json_string);
-  // connect to controller
-  if (client.connect(controller_ip, controller_port)) {
-    Serial.println("connected to controller");
-    client.print("POST /settings/climaduino/");
-    client.print(DEVICEID);
-    client.println(" HTTP/1.0");
-    client.print("User-Agent: Climaduino Remote Zone ");
-    client.println(DEVICEID);
-    client.print("Content-Length: "); 
-    client.println(json_string.length());
-    client.println("Connection: close");
-    client.println("Content-Type: application/json");
-    client.println(); //blank line between headers and body of request needed
-    client.println(json_string);
-    delay(500); //give the controller enough time to formulate a response
-    Serial.println("Controller response: ");
-    boolean capture_response = false; //used to know when to start capturing the response data. We want to ignore the headers
-    while (client.available() > 0) {
-      char c = client.read();
-      if (capture_response == true) {
-        // add it to the inputString:
-        inputString += c;
-         if (c == 'F') { // input to change temperature
-          if (inputString.length() <= 3){ // 2 digits and an F
-            // remove last character and turn into a float
-            inputString = inputString.substring(0, 2);
-            char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
-            inputString.toCharArray(inputCharArray, 3);
-            // provide some output on Serial
-            Serial.print("Temp ");
-            Serial.print(tempSetPointF);
-            Serial.print(" => ");
-            Serial.println(inputCharArray);
-            // change the set point
-            tempSetPointF = (float)atoi(inputCharArray);
-          }
-          inputString = ""; // clear inputString
-        }
-        if (c == '%') { // input to change humidity set point
-          if (inputString.length() <= 3){ // 2 digits and a %
-            // remove last character and turn into an integer
-            inputString = inputString.substring(0, inputString.length() - 1);
-            //char inputCharArray[inputString.length() + 1];
-            char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
-            inputString.toCharArray(inputCharArray, 3);
-            // provide some output on Serial
-            Serial.print("Humidity ");
-            Serial.print(humiditySetPoint);
-            Serial.print(" => ");
-            Serial.println(inputCharArray);
-            // change the set point
-            humiditySetPoint = atoi(inputCharArray);
-          }
-          inputString = ""; // clear inputString
-        }
-        if (c == 'M') { // input to change operation mode
-          if (inputString.length() <= 2){ // 1 digits and an M
-            // remove last character and turn into an integer
-            inputString = inputString.substring(0, inputString.length() - 1);
-            //char inputCharArray[inputString.length() + 1];
-            char inputCharArray[2]; //only allow values with 1 digit (and 1 null for atoi)
-            inputString.toCharArray(inputCharArray, 2);
-            // provide some output on Serial
-            Serial.print("Mode ");
-            Serial.print(operationMode);
-            Serial.print(" => ");
-            Serial.println(inputCharArray);
-            // change the mode
-            operationMode = atoi(inputCharArray);
-           }
-          inputString = ""; // clear inputString
-        }
-      } 
-      if (capture_response == false) {
-        if (c == '^') {
-          capture_response = true;
-        }
-      }         
-    }
-    client.stop();
-  }
-  else {
-    Serial.println("connection to controller failed");
-  }
+  char* outputJson = thermostat.Control(averageTemp, averageHumidity);
+  Serial.println(outputJson);
+  sendJson(outputJson);
   // Update EEPROM with any changes to operating parameters
+  free(outputJson);
   updateEEPROMValues();
+  wdt_reset(); //reset watchdog timer
+}
+
+ISR(WDT_vect)
+{ // what happens when the watchdog interrupt is triggered
+  
 }
