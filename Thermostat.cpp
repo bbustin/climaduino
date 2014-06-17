@@ -68,88 +68,78 @@ bool Thermostat::_shortCycleProtection()
 when state is changed
 
 passing in true means turn on */
-void Thermostat::_changePowerState(bool state){
-	Serial.print("_changePowerState: ");
-	Serial.println(state);
+void Thermostat::_changePowerState(bool state, bool updateStateChangeMillis=true){
 	switch(state){
 		case false:
 			if (_currentlyRunning == true) {
-				digitalWrite(_pinCool, LOW);
-				digitalWrite(_pinHeat, LOW);
-				digitalWrite(_pinFan, LOW);
-				_currentlyRunning = false;
-				_stateChangeMillis = millis();
+				if (updateStateChangeMillis){
+					_stateChangeMillis = millis();
+				}
 			}
+			digitalWrite(_pinCool, LOW);
+			digitalWrite(_pinHeat, LOW);
+			digitalWrite(_pinFan, LOW);
+			_currentlyRunning = false;
 			break;
 		case true:
 			if (_currentlyRunning == false) {
-				switch(mode){
-					case 0: //cooling mode
-						digitalWrite(_pinCool, HIGH);
-						digitalWrite(_pinHeat, LOW);
-						digitalWrite(_pinFan, LOW);
-						break;
-					case 1: //humidity control mode
-						digitalWrite(_pinCool, HIGH);
-						digitalWrite(_pinHeat, LOW);
-						digitalWrite(_pinFan, LOW);
-						break;
-					case 5: //heating mode
-						digitalWrite(_pinCool, LOW);
-						digitalWrite(_pinHeat, HIGH);
-						digitalWrite(_pinFan, LOW);
-						break;
-					case 8: //fan only
-						digitalWrite(_pinCool, LOW);
-						digitalWrite(_pinHeat, LOW);
-						digitalWrite(_pinFan, HIGH);
-						break;
+				if (updateStateChangeMillis){
+					_stateChangeMillis = millis();
 				}
-			_currentlyRunning = true;
-			_stateChangeMillis = millis();
 			}
+			switch(mode){
+				case 0: //cooling mode
+					digitalWrite(_pinCool, HIGH);
+					digitalWrite(_pinHeat, LOW);
+					digitalWrite(_pinFan, LOW);
+					break;
+				case 1: //humidity control mode
+					digitalWrite(_pinCool, HIGH);
+					digitalWrite(_pinHeat, LOW);
+					digitalWrite(_pinFan, LOW);
+					break;
+				case 5: //heating mode
+					digitalWrite(_pinCool, LOW);
+					digitalWrite(_pinHeat, HIGH);
+					digitalWrite(_pinFan, LOW);
+					break;
+				case 8: //fan only
+					digitalWrite(_pinCool, LOW);
+					digitalWrite(_pinHeat, LOW);
+					digitalWrite(_pinFan, HIGH);
+					break;
+			}
+			_currentlyRunning = true;
 			break;
 	}
 }
 
-char* Thermostat::_jsonCreate(float temperature, float humidity, bool stateChangeAllowed)
+bool Thermostat::CurrentlyRunning()
 {
-	aJsonObject* readings = aJson.createObject();
-	aJson.addNumberToObject(readings, "temp", temperature);
-	aJson.addNumberToObject(readings, "humidity", humidity);
-	aJsonObject* parameters = aJson.createObject();
-	aJson.addNumberToObject(parameters, "temp", tempSetPoint);
-	aJson.addNumberToObject(parameters, "humidity", humiditySetPoint);
-	aJson.addNumberToObject(parameters, "mode", mode);
-	aJsonObject* status = aJson.createObject();
-	aJson.addBooleanToObject(status, "stateChangeAllowed", stateChangeAllowed);
-	aJson.addBooleanToObject(status, "currentlyRunning", _currentlyRunning);
-	aJson.addNumberToObject(status, "freeMemory", freeMemory());
-	aJsonObject* root = aJson.createObject();
-	aJson.addItemToObject(root, "readings", readings);
-	aJson.addItemToObject(root, "parameters", parameters);
-	aJson.addItemToObject(root, "status", status);
-	_jsonOutput = aJson.print(root);
-	aJson.deleteItem(root);
-	return _jsonOutput;
+	return _currentlyRunning;
 }
 
-char* Thermostat::Control(float temperature, float humidity)
+bool Thermostat::StateChangeAllowed()
+{
+	return _stateChangeAllowed;
+}
+
+void Thermostat::Control(float temperature, float humidity)
 {
 	/* Check to make sure we are not short-cycling if in cooling, humidity control, or heating mode
 	if a heat pump in use */
-	bool stateChangeAllowed;
+	bool _stateChangeAllowed;
 	if (mode == 0 || mode == 1){ //operation modes that involve the compressor
-		stateChangeAllowed = _shortCycleProtection();
+		_stateChangeAllowed = _shortCycleProtection();
 	}
 	else if (mode == 5 && _heatPump) { //heating with a heat pump involves the compressor too and must be protected
-		stateChangeAllowed = _shortCycleProtection();
+		_stateChangeAllowed = _shortCycleProtection();
 	}
 	else {
-		stateChangeAllowed = true;
+		_stateChangeAllowed = true;
 	}
 
-	if (stateChangeAllowed){
+	if (_stateChangeAllowed){
 		// create local variables for temp and humidity set points so we can modify temporarily
 		int _setPointF = tempSetPoint; 
 		int _humiditySetPoint = humiditySetPoint;
@@ -194,18 +184,29 @@ char* Thermostat::Control(float temperature, float humidity)
 			case 5: // heating mode
 				// check if temperature is less than tempSetPoint
 				if (temperature < _setPointF) {
-					_changePowerState(true);
+					if (_heatPump) {
+						_changePowerState(true);
+					}
+					else {
+						_changePowerState(true, false); // if not using a heat pump, no need to record last time system came on
+					}
+					
 				}
 				else {
-					_changePowerState(false); 
+					if (_heatPump) {
+							_changePowerState(false);
+						}
+						else {
+							_changePowerState(false, false); // if not using a heat pump, no need to record last time system came on
+						}
 				}
 				break;
 			case 8: // fan only mode
-				_changePowerState(true);
+				_changePowerState(true, false); //change power state, but do not record last state change
 				break;
 			default: //if mode is unrecognized, power should be off
-				_changePowerState(false);
+				_changePowerState(false); //record when power state was changed as it could have previously been in a mode that used the compressor
 		}
 	}
-	return _jsonCreate(temperature, humidity, stateChangeAllowed);
+	return;
 }

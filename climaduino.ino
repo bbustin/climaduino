@@ -6,12 +6,10 @@
 // http://www.milesburton.com/?title=Dallas_Temperature_Control_Library
 #include <DHT.h>
 #include <EEPROM.h>
-#include <SPI.h>
-#include <Ethernet.h>
-#include "Thermostat.h" //using " " instead of < > because in the same folder as sketch
-#include <aJSON.h>
+#include "Thermostat.h" // using " " instead of < > because importing from the sketch folder
 #include <MemoryFree.h>
 #include <avr/wdt.h> //for WatchDog timer
+#include <Bridge.h> //for Arduino Yun bridge
 
 // =============================================================== //
 // statically defined variables - these can not be changed later   //
@@ -37,20 +35,16 @@ const int delayBetweenReadingsMillis = 2000; // how long to wait between reading
 // pins to use
 const int pinSensor = 9; // pin for temperature and humidity (DHT-22)
 
-byte mac[] = { 0x48, 0xC2, 0xA1, 0xF3, 0x8D, 0xB7 }; // if you have multiple climaduino zones, they must have unique MAC addresses
-IPAddress ip(192, 168, 1, 150);
-IPAddress controller_ip(192, 168, 2, 5); // ip address of the web controller, note: you may want to statically assign the Controller's address.
-const int controller_port = 80;
-
 // =============================================================== //
 // Global variables                                                //
 // =============================================================== //
 int tempSetPointF; // temperature set point.
-//// Interrupt Service Routine (ISR)
 int humiditySetPoint; // percent relative humidity
 float averageTemp = NAN; // average temperature
 float averageHumidity = NAN; // average humidity
 boolean currentlyRunning = false; // track whether system is currently running
+boolean localParameterOverride = false; // set to true if a local change to operating parameters
+                                      //// was made that will need to be sent to the Yun
 unsigned long stateChangeMillis; // time in millis when system either turned on or off
 int operationMode = 0; // 0 cooling + humidity, 1 humidity control, 5 heating, 9 off
 String inputString; // input from Serial
@@ -59,7 +53,6 @@ String inputString; // input from Serial
 // Global objects                                                  //
 // =============================================================== //
 DHT dht(pinSensor, DHT22); // set up object for DHT22 temperature sensor
-EthernetClient client; // set up object for ethernet client
 Thermostat thermostat(pinCool, pinHeat, pinFan, false); // Climaduino thermostat object
 
 // =============================================================== //
@@ -132,6 +125,52 @@ void updateEEPROMValues() {
   }
 }
 
+// Updates current parameters from the Arduino Yun's key/value store
+//// If they differ from the current parameters
+void updateParametersFromYun() {
+  char _charTempSetPointF[3]; // temperature set point in Yun Key/Value store.
+  char _charHumiditySetPoint[3]; // percent relative humidity set point in in Yun Key/Value store
+  char _charOperationMode[2]; // mode setting in Yun Key/Value store
+  Bridge.get("tempSetPoint", _charTempSetPointF, 3);
+  Bridge.get("humiditySetPoint", _charHumiditySetPoint, 3);
+  Bridge.get("mode", _charOperationMode, 2);
+  int _tempSetPointF = atoi(_charTempSetPointF);
+  int _humiditySetPoint = atoi(_charHumiditySetPoint);
+  int _operationMode = atoi(_charOperationMode);
+  if (operationMode != _operationMode) {
+    operationMode = _operationMode;
+  }
+  if (tempSetPointF != _tempSetPointF) {
+    tempSetPointF = _tempSetPointF;
+  }
+  if (humiditySetPoint != _humiditySetPoint) {
+    humiditySetPoint = _humiditySetPoint;
+  }
+}
+
+// Updates current parameters to the Arduino Yun's key/value store
+//// If it differs from the current local parameters
+void updateParametersToYun() {
+  char _charTempSetPointF[3]; // temperature set point in Yun Key/Value store.
+  char _charHumiditySetPoint[3]; // percent relative humidity set point in in Yun Key/Value store
+  char _charOperationMode[2]; // mode setting in Yun Key/Value store
+  Bridge.get("tempSetPoint", _charTempSetPointF, 3);
+  Bridge.get("humiditySetPoint", _charHumiditySetPoint, 3);
+  Bridge.get("mode", _charOperationMode, 2);
+  int _tempSetPointF = atoi(_charTempSetPointF);
+  int _humiditySetPoint = atoi(_charHumiditySetPoint);
+  int _operationMode = atoi(_charOperationMode);
+  if (operationMode != _operationMode) {
+    Bridge.put("mode", String(operationMode));
+  }
+  if (tempSetPointF != _tempSetPointF) {
+    Bridge.put("tempSetPoint",  String(tempSetPointF));
+  }
+  if (humiditySetPoint != _humiditySetPoint) {
+    Bridge.put("humiditySetPoint", String(humiditySetPoint));
+  }
+}
+
 // Gets average temperature and humidity readings
 //// takes numberOfReadings spaced out by delayBetweenReadings
 ////
@@ -169,93 +208,6 @@ float averageReadings(){
   else {
     averageTemp = sumOfReadingsTemp/numberOfReadings;
     averageHumidity = sumOfReadingsHumidity/numberOfReadings;
-  }
-}
-
-void sendJson(char *outputJson){
-    // connect to controller, send JSON, get response back and deal with it 
-  if (client.connect(controller_ip, controller_port)) {
-    Serial.println(F("connected to controller"));
-    client.print(F("POST /settings/climaduino/"));
-    client.print(DEVICEID);
-    client.println(F(" HTTP/1.0"));
-    client.print(F("User-Agent: Climaduino Remote Zone "));
-    client.println(DEVICEID);
-    client.print(F("Content-Length: ")); 
-    client.println(strlen(outputJson));
-    client.println(F("Connection: close"));
-    client.println(F("Content-Type: application/json"));
-    client.println(); //blank line between headers and body of request needed
-    client.println(outputJson);
-    delay(500); //give the controller enough time to formulate a response
-    Serial.println(F("Controller response: "));
-    boolean capture_response = false; //used to know when to start capturing the response data. We want to ignore the headers
-    while (client.available() > 0) {
-      char c = client.read();
-      if (capture_response == true) {
-        // add it to the inputString:
-        inputString += c;
-         if (c == 'F') { // input to change temperature
-          if (inputString.length() <= 3){ // 2 digits and an F
-            // remove last character and turn into a float
-            inputString = inputString.substring(0, 2);
-            char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
-            inputString.toCharArray(inputCharArray, 3);
-            // provide some output on Serial
-            Serial.print("Temp ");
-            Serial.print(tempSetPointF);
-            Serial.print(" => ");
-            Serial.println(inputCharArray);
-            // change the set point
-            tempSetPointF = (float)atoi(inputCharArray);
-          }
-          inputString = ""; // clear inputString
-        }
-        if (c == '%') { // input to change humidity set point
-          if (inputString.length() <= 3){ // 2 digits and a %
-            // remove last character and turn into an integer
-            inputString = inputString.substring(0, inputString.length() - 1);
-            //char inputCharArray[inputString.length() + 1];
-            char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
-            inputString.toCharArray(inputCharArray, 3);
-            // provide some output on Serial
-            Serial.print(F("Humidity "));
-            Serial.print(humiditySetPoint);
-            Serial.print(" => ");
-            Serial.println(inputCharArray);
-            // change the set point
-            humiditySetPoint = atoi(inputCharArray);
-          }
-          inputString = ""; // clear inputString
-        }
-        if (c == 'M') { // input to change operation mode
-          if (inputString.length() <= 2){ // 1 digits and an M
-            // remove last character and turn into an integer
-            inputString = inputString.substring(0, inputString.length() - 1);
-            //char inputCharArray[inputString.length() + 1];
-            char inputCharArray[2]; //only allow values with 1 digit (and 1 null for atoi)
-            inputString.toCharArray(inputCharArray, 2);
-            // provide some output on Serial
-            Serial.print(F("Mode "));
-            Serial.print(operationMode);
-            Serial.print(F(" => "));
-            Serial.println(inputCharArray);
-            // change the mode
-            operationMode = atoi(inputCharArray);
-           }
-          inputString = ""; // clear inputString
-        }
-      } 
-      if (capture_response == false) {
-        if (c == '^') {
-          capture_response = true;
-        }
-      }         
-    }
-    client.stop();
-  }
-  else {
-    Serial.println(F("connection to controller failed"));
   }
 }
 
@@ -316,25 +268,21 @@ void serialEvent() {
 void setup()
 {
   readEEPROMValues();
+  // Bridge startup
+  pinMode(13, OUTPUT);
+  digitalWrite(13, LOW);
+  Bridge.begin();
+  digitalWrite(13, HIGH);
   Serial.begin(9600);  //Start the Serial connection with the computer
-  //to view the result open the Serial monitor
-  Serial.println(F("Connecting to Ethernet network using DHCP"));
-  if (Ethernet.begin(mac) == 1) { //try to connect first using DHCP. If that fails, use a fixed IP.
-    Serial.print(F("SUCCESS. IP: "));
-    Serial.println(Ethernet.localIP());
-  }
-  else {
-    // DHCP failed, so use a fixed IP address:
-    Serial.print(F("FAILED. Using IP: "));
-    Serial.println(ip);
-    Ethernet.begin(mac, ip);
-  }
   //Taking the values defined above in the sketch and applying them to the Thermostat object
   thermostat.tempHysteresis = tempHysteresis;
   thermostat.humidityHysteresis = humidityHysteresis;
   thermostat.humidityOverCooling = humidityOverCooling;
   thermostat.minRunTimeMillis = minRunTimeMillis;
   thermostat.minOffTimeMillis = minOffTimeMillis;
+  Bridge.put("tempSetPoint", String(tempSetPointF));
+  Bridge.put("humiditySetPoint", String(humiditySetPoint));
+  Bridge.put("mode", String(operationMode));
   dht.begin(); //start up DHT library;
 }
 
@@ -343,15 +291,31 @@ void setup()
 // =============================================================== //
 void loop(){
   wdt_reset(); //reset watchdog timer
+  // if settings were changed locally, send this to the Yun and do not
+  //// pull parameters for it for this loop. Next loop the Yun will already have
+  //// the new overridden values and can stop ignoring the Yun's values.
+  if (localParameterOverride) {
+    updateParametersToYun();
+    localParameterOverride = false;
+  }
+  else {
+    updateParametersFromYun();
+  }
   thermostat.mode = operationMode;
   thermostat.tempSetPoint = tempSetPointF;
   thermostat.humiditySetPoint = humiditySetPoint;
   averageReadings(); // get the average readings
-  char* outputJson = thermostat.Control(averageTemp, averageHumidity);
-  Serial.println(outputJson);
-  sendJson(outputJson);
+  thermostat.Control(averageTemp, averageHumidity);//run thermostat logic
+  wdt_reset(); //reset watchdog timer
+  // put data in the Arduino Yun key/value store
+  Bridge.put("temperature", String(averageTemp));
+  Bridge.put("humidity", String(averageHumidity));
+//  Bridge.put("tempSetPoint", String(tempSetPointF));
+//  Bridge.put("humiditySetPoint", String(humiditySetPoint));
+//  Bridge.put("mode", String(operationMode));
+  Bridge.put("currentlyRunning", String(thermostat.CurrentlyRunning()));
+  Bridge.put("stateChangeAllowed", String(thermostat.StateChangeAllowed()));
   // Update EEPROM with any changes to operating parameters
-  free(outputJson);
   updateEEPROMValues();
   wdt_reset(); //reset watchdog timer
 }
