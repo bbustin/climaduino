@@ -8,7 +8,7 @@
 #include <EEPROM.h>
 #include <SPI.h>
 #include <Ethernet.h>
-#include <Thermostat.h>
+#include "Thermostat.h" //using " " instead of < > because in the same folder as sketch
 #include <aJSON.h>
 #include <MemoryFree.h>
 #include <avr/wdt.h> //for WatchDog timer
