@@ -10,6 +10,7 @@
 #include <MemoryFree.h>
 #include <avr/wdt.h> //for WatchDog timer
 #include <Bridge.h> //for Arduino Yun bridge
+#include <Console.h> //for Arduino Yun console (like Serial over WiFi)
 
 // =============================================================== //
 // statically defined variables - these can not be changed later   //
@@ -92,14 +93,16 @@ void readEEPROMValues() {
   tempSetPointF = EEPROM.read(1);
   humiditySetPoint = EEPROM.read(2);
   
+  // NOTE: ON THE ARDUINO YUN, EEPROM VALUES ARE CLEARED WHEN A SKETCH IS UPLOADED
+  
   // if any values are 255, it means the address space in EEPROM
   //// has not been written yet. In that case, let's set some sane
   //// defaults which will eventually be written to EEPROM by another function.
   if (operationMode == 255) {
-    operationMode = 0;
+    operationMode = 9;
   }
   if (tempSetPointF == 255) {
-    tempSetPointF = 78;
+    tempSetPointF = 77;
   }
   if (humiditySetPoint == 255) {
     humiditySetPoint = 55;
@@ -267,13 +270,11 @@ void serialEvent() {
 // =============================================================== //
 void setup()
 {
-  readEEPROMValues();
   // Bridge startup
-  pinMode(13, OUTPUT);
-  digitalWrite(13, LOW);
   Bridge.begin();
-  digitalWrite(13, HIGH);
+  Console.begin(); // Start the console over WiFi connection
   Serial.begin(9600);  //Start the Serial connection with the computer
+  readEEPROMValues();
   //Taking the values defined above in the sketch and applying them to the Thermostat object
   thermostat.tempHysteresis = tempHysteresis;
   thermostat.humidityHysteresis = humidityHysteresis;
