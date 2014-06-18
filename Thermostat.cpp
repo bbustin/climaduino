@@ -160,11 +160,11 @@ void Thermostat::Control(float temperature, float humidity)
 		switch (mode){
 			case 0: // coolimg mode
 				// first deal with humidity if too high, adjust _setPointF by humidityOverCooling
-				if (humidity > _humiditySetPoint) {
+				if (round(humidity) > _humiditySetPoint) {
 					_setPointF -= humidityOverCooling; 
 				}
 				// check if temperature is higher than tempSetPoint
-				if (temperature > _setPointF) {
+				if (round(emperature) > _setPointF) {
 				 	_changePowerState(true);
 				}
 				else {
@@ -173,7 +173,7 @@ void Thermostat::Control(float temperature, float humidity)
 				break;
 		 	case 1: // humidity control mode
 				// check if humidity is higher than setpoint
-				if (humidity > _humiditySetPoint) {
+				if (round(humidity) > _humiditySetPoint) {
 				 	_changePowerState(true);
 				}
 				else {
@@ -182,7 +182,7 @@ void Thermostat::Control(float temperature, float humidity)
 				break;
 			case 5: // heating mode
 				// check if temperature is less than tempSetPoint
-				if (temperature < _setPointF) {
+				if (round(temperature) < _setPointF) {
 					if (_heatPump) {
 						_changePowerState(true);
 					}
