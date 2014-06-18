@@ -2,8 +2,7 @@
 #ifndef Thermostat_h
 #define Thermostat_h
 #include "Arduino.h"
-#include "MemoryFree.h" //for reporting on free memory
-// the #include statment and code go here...
+
 class Thermostat 
 {
 	public:
@@ -31,7 +30,6 @@ class Thermostat
 		bool _currentlyRunning;
 		char* _jsonOutput;
 		unsigned long _stateChangeMillis;
-		char* _crashReportData; //crash report data to narrow things down
 		bool _stateChangeAllowed;
 		unsigned long _millisSinceLastStateChange();
 		bool _shortCycleProtection();
