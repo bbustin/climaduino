@@ -164,7 +164,7 @@ void Thermostat::Control(float temperature, float humidity)
 					_setPointF -= humidityOverCooling; 
 				}
 				// check if temperature is higher than tempSetPoint
-				if (round(emperature) > _setPointF) {
+				if (round(temperature) > _setPointF) {
 				 	_changePowerState(true);
 				}
 				else {
