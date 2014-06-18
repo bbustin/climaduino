@@ -128,7 +128,6 @@ void Thermostat::Control(float temperature, float humidity)
 {
 	/* Check to make sure we are not short-cycling if in cooling, humidity control, or heating mode
 	if a heat pump in use */
-	bool _stateChangeAllowed;
 	if (mode == 0 || mode == 1){ //operation modes that involve the compressor
 		_stateChangeAllowed = _shortCycleProtection();
 	}
