@@ -28,7 +28,7 @@ const int tempHysteresis = 2;
 const int humidityHysteresis = 2;
 // limits
 const int humidityOverCooling = 5; // degrees cooler than setpoint allowed to dehumidify
-const unsigned long minRunTimeMillis = 180000; // compressor minimum runtime allowed (prevent short cycles) - unsigned long to match millis datatype
+const unsigned long minRunTimeMillis = 360000; // compressor minimum runtime allowed (prevent short cycles) - unsigned long to match millis datatype
 const unsigned long minOffTimeMillis = 180000; //compressor minimum off time before can run again (protect compressor) - unsigned long to match millis datatype
 // parameters for averaging readings
 const int numberOfReadings = 2; // how many readings to average

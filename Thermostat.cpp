@@ -14,10 +14,10 @@ Thermostat::Thermostat(int pinCool, int pinHeat, int pinFan, bool heatPump)
 	_stateChangeMillis = millis(); //so we automatically wait before turning on. useful for cases where the power goes out while the compressor is running.
 	/* Setting some defaults for publically-accessible properties. These can be overridden. */
 	mode = 9; //defaults to mode 9 - off (0 cooling + humidity, 1 humidity control, 5 heating, 8 fan, 9 off)
-	tempHysteresis = 2; //amount above or below (depending on mode) the threshold allowed
+	tempHysteresis = 2; //amount above or below the threshold allowed
 	humidityHysteresis = 2;  //amount above the threshold allowed
 	humidityOverCooling = 5; //degrees cooler than setpoint allowed to dehumidify when in cooling mode
-	minRunTimeMillis = 600000; //cooling minimum runtime allowed (prevent short cycles) - unsigned long to match millis datatype
+	minRunTimeMillis = 360000; //cooling minimum runtime allowed (prevent short cycles) - unsigned long to match millis datatype
 	minOffTimeMillis = 180000; //cooling minimum off time before can run again (protect compressor) - unsigned long to match millis datatype
 }
 
@@ -160,11 +160,11 @@ void Thermostat::Control(float temperature, float humidity)
 		switch (mode){
 			case 0: // coolimg mode
 				// first deal with humidity if too high, adjust _setPointF by humidityOverCooling
-				if (round(humidity) > _humiditySetPoint) {
+				if (humidity > _humiditySetPoint) {
 					_setPointF -= humidityOverCooling; 
 				}
 				// check if temperature is higher than tempSetPoint
-				if (round(temperature) > _setPointF) {
+				if (temperature > _setPointF) {
 				 	_changePowerState(true);
 				}
 				else {
@@ -173,7 +173,7 @@ void Thermostat::Control(float temperature, float humidity)
 				break;
 		 	case 1: // humidity control mode
 				// check if humidity is higher than setpoint
-				if (round(humidity) > _humiditySetPoint) {
+				if (humidity > _humiditySetPoint) {
 				 	_changePowerState(true);
 				}
 				else {
@@ -182,7 +182,7 @@ void Thermostat::Control(float temperature, float humidity)
 				break;
 			case 5: // heating mode
 				// check if temperature is less than tempSetPoint
-				if (round(temperature) < _setPointF) {
+				if (int(temperature) < _setPointF) {
 					if (_heatPump) {
 						_changePowerState(true);
 					}
