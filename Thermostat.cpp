@@ -11,6 +11,7 @@ Thermostat::Thermostat(int pinCool, int pinHeat, int pinFan, bool heatPump)
 	_pinFan = pinFan;
 	_heatPump = heatPump;
 	_currentlyRunning = false;
+	_fanRunning = false;
 	_stateChangeMillis = millis(); //so we automatically wait before turning on. useful for cases where the power goes out while the compressor is running.
 	/* Setting some defaults for publically-accessible properties. These can be overridden. */
 	mode = 9; //defaults to mode 9 - off (0 cooling + humidity, 1 humidity control, 5 heating, 8 fan, 9 off)
@@ -78,7 +79,6 @@ void Thermostat::_changePowerState(bool state, bool updateStateChangeMillis=true
 			}
 			digitalWrite(_pinCool, LOW);
 			digitalWrite(_pinHeat, LOW);
-			digitalWrite(_pinFan, LOW);
 			_currentlyRunning = false;
 			break;
 		case true:
@@ -91,22 +91,14 @@ void Thermostat::_changePowerState(bool state, bool updateStateChangeMillis=true
 				case 0: //cooling mode
 					digitalWrite(_pinCool, HIGH);
 					digitalWrite(_pinHeat, LOW);
-					digitalWrite(_pinFan, LOW);
 					break;
 				case 1: //humidity control mode
 					digitalWrite(_pinCool, HIGH);
 					digitalWrite(_pinHeat, LOW);
-					digitalWrite(_pinFan, LOW);
 					break;
 				case 5: //heating mode
 					digitalWrite(_pinCool, LOW);
 					digitalWrite(_pinHeat, HIGH);
-					digitalWrite(_pinFan, LOW);
-					break;
-				case 8: //fan only
-					digitalWrite(_pinCool, LOW);
-					digitalWrite(_pinHeat, LOW);
-					digitalWrite(_pinFan, HIGH);
 					break;
 			}
 			_currentlyRunning = true;
@@ -117,6 +109,23 @@ void Thermostat::_changePowerState(bool state, bool updateStateChangeMillis=true
 bool Thermostat::CurrentlyRunning()
 {
 	return _currentlyRunning;
+}
+
+bool Thermostat::FanRunning(){
+	return _fanRunning;
+}
+
+void Thermostat::FanControl(bool state){
+	switch(state){
+		case true:
+			digitalWrite(_pinFan, HIGH);
+			_fanRunning = true;
+			break;
+		default:
+			digitalWrite(_pinFan, LOW);
+			_fanRunning = false;
+			break;
+	}
 }
 
 bool Thermostat::StateChangeAllowed()
@@ -199,9 +208,6 @@ void Thermostat::Control(float temperature, float humidity)
 							_changePowerState(false, false); // if not using a heat pump, no need to record last time system came on
 						}
 				}
-				break;
-			case 8: // fan only mode
-				_changePowerState(true, false); //change power state, but do not record last state change
 				break;
 			default: //if mode is unrecognized, power should be off
 				_changePowerState(false); //record when power state was changed as it could have previously been in a mode that used the compressor

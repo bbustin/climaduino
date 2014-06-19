@@ -8,7 +8,9 @@ class Thermostat
 	public:
 		Thermostat(int pinCool, int pinHeat, int pinFan, bool heatPump);
 		void Control(float temperature, float humidity);
+		void FanControl(bool state);
 		bool CurrentlyRunning();
+		bool FanRunning();
 		bool StateChangeAllowed();
 		int mode;
 		int tempHysteresis;
@@ -28,6 +30,7 @@ class Thermostat
 		float _temperature;
 		float _humidity;
 		bool _currentlyRunning;
+		bool _fanRunning;
 		char* _jsonOutput;
 		unsigned long _stateChangeMillis;
 		bool _stateChangeAllowed;

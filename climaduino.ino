@@ -48,6 +48,7 @@ boolean localParameterOverride = false; // set to true if a local change to oper
                                       //// was made that will need to be sent to the Yun
 unsigned long stateChangeMillis; // time in millis when system either turned on or off
 int operationMode = 0; // 0 cooling + humidity, 1 humidity control, 5 heating, 9 off
+boolean fanMode = false; // 0 fan auto, 1 fan on
 String inputString; // input from Serial
 
 // =============================================================== //
@@ -134,14 +135,20 @@ void updateParametersFromYun() {
   char _charTempSetPointF[3]; // temperature set point in Yun Key/Value store.
   char _charHumiditySetPoint[3]; // percent relative humidity set point in in Yun Key/Value store
   char _charOperationMode[2]; // mode setting in Yun Key/Value store
+  char _charFanMode[2]; // fan mode setting in Yun Key/Value store
   Bridge.get("tempSetPoint", _charTempSetPointF, 3);
   Bridge.get("humiditySetPoint", _charHumiditySetPoint, 3);
   Bridge.get("mode", _charOperationMode, 2);
+  Bridge.get("fanMode", _charFanMode, 2);
   int _tempSetPointF = atoi(_charTempSetPointF);
   int _humiditySetPoint = atoi(_charHumiditySetPoint);
   int _operationMode = atoi(_charOperationMode);
+  bool _fanMode = atoi(_charFanMode) != 0;
   if (operationMode != _operationMode) {
     operationMode = _operationMode;
+  }
+  if (fanMode != _fanMode) {
+    fanMode = _fanMode;
   }
   if (tempSetPointF != _tempSetPointF) {
     tempSetPointF = _tempSetPointF;
@@ -155,16 +162,22 @@ void updateParametersFromYun() {
 //// If it differs from the current local parameters
 void updateParametersToYun() {
   char _charTempSetPointF[3]; // temperature set point in Yun Key/Value store.
-  char _charHumiditySetPoint[3]; // percent relative humidity set point in in Yun Key/Value store
+  char _charHumiditySetPoint[3]; // percent relative humidity set point in Yun Key/Value store
   char _charOperationMode[2]; // mode setting in Yun Key/Value store
+  char _charFanMode[2]; // fan mode setting in Yun Key/Value store
   Bridge.get("tempSetPoint", _charTempSetPointF, 3);
   Bridge.get("humiditySetPoint", _charHumiditySetPoint, 3);
   Bridge.get("mode", _charOperationMode, 2);
+  Bridge.get("fanMode", _charFanMode, 2);
   int _tempSetPointF = atoi(_charTempSetPointF);
   int _humiditySetPoint = atoi(_charHumiditySetPoint);
   int _operationMode = atoi(_charOperationMode);
+  bool _fanMode = atoi(_charFanMode) !=0;
   if (operationMode != _operationMode) {
     Bridge.put("mode", String(operationMode));
+  }
+  if (fanMode != _fanMode) {
+    Bridge.put("fanMode", String(fanMode));
   }
   if (tempSetPointF != _tempSetPointF) {
     Bridge.put("tempSetPoint",  String(tempSetPointF));
@@ -284,6 +297,7 @@ void setup()
   Bridge.put("tempSetPoint", String(tempSetPointF));
   Bridge.put("humiditySetPoint", String(humiditySetPoint));
   Bridge.put("mode", String(operationMode));
+  Bridge.put("fanMode", String(fanMode));
   dht.begin(); //start up DHT library;
 }
 
@@ -306,6 +320,7 @@ void loop(){
   thermostat.tempSetPoint = tempSetPointF;
   thermostat.humiditySetPoint = humiditySetPoint;
   averageReadings(); // get the average readings
+  thermostat.FanControl(fanMode); // turn fan on or off as appropriate
   thermostat.Control(averageTemp, averageHumidity);//run thermostat logic
   wdt_reset(); //reset watchdog timer
   // put data in the Arduino Yun key/value store
