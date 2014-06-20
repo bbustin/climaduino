@@ -17,7 +17,7 @@ Thermostat::Thermostat(int pinCool, int pinHeat, int pinFan, bool heatPump)
 	mode = 9; //defaults to mode 9 - off (0 cooling + humidity, 1 humidity control, 5 heating, 8 fan, 9 off)
 	tempHysteresis = 2; //amount above or below the threshold allowed
 	humidityHysteresis = 2;  //amount above the threshold allowed
-	humidityOverCooling = 5; //degrees cooler than setpoint allowed to dehumidify when in cooling mode
+	humidityOverCooling = 2; //degrees cooler than setpoint allowed to dehumidify when in cooling mode
 	minRunTimeMillis = 360000; //cooling minimum runtime allowed (prevent short cycles) - unsigned long to match millis datatype
 	minOffTimeMillis = 180000; //cooling minimum off time before can run again (protect compressor) - unsigned long to match millis datatype
 }
