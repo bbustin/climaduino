@@ -31,12 +31,18 @@ const int pinCooler = 11;
 const int pinWarmer = 12;
 // pinWarmer - button to trigger 1 degree hotter is 3. interrupt 1
 //// hardcoded to pin 3 on the Uno http://arduino.cc/en/Reference/attachInterrupt
-const int lcdRS = 3;
-const int lcdEnable = 4;
-const int lcdD4 = 5;
-const int lcdD5 = 6;
-const int lcdD6 = 7;
-const int lcdD7 = 8;
+const int lcdRS = 2;
+const int lcdEnable = 3;
+const int lcdD4 = 4;
+const int lcdD5 = 5;
+const int lcdD6 = 6;
+const int lcdD7 = 7;
+const int lcdRedPin = 8;
+const int lcdGreenPin = 9;
+const int lcdBluePin = 10;
+
+int brightness = 255;
+
 
 // =============================================================== //
 // Global variables                                                //
@@ -120,7 +126,7 @@ void powerState(boolean state){
             digitalWrite(pinRelay, LOW);
             currentlyRunning = false; //set global variable that keeps track of system status
             stateChangeMillis = millis();
-            lcd.begin(16, 2); //reset the LCD since it seems to mess up after the AC is turned on
+            lcd.begin(20, 4); //reset the LCD since it seems to mess up after the AC is turned on
             lcd.print("System Off");
           }
           break;
@@ -129,7 +135,7 @@ void powerState(boolean state){
             digitalWrite(pinRelay, HIGH);
             currentlyRunning = true; //set global variable that keeps track of system status
             stateChangeMillis = millis();
-            lcd.begin(16, 2); //reset the LCD since it seems to mess up after the AC is turned on
+            lcd.begin(20, 4); //reset the LCD since it seems to mess up after the AC is turned on
             lcd.print("System On");
           }
           break;
@@ -349,8 +355,35 @@ void serialEvent() {
 // =============================================================== //
 // Setup                                                           //
 // =============================================================== //
+
+void setBacklight(uint8_t r, uint8_t g, uint8_t b) {
+  // normalize the red LED - its brighter than the rest!
+  r = map(r, 0, 255, 0, 100);
+  g = map(g, 0, 255, 0, 150);
+ 
+  r = map(r, 0, 255, 0, brightness);
+  g = map(g, 0, 255, 0, brightness);
+  b = map(b, 0, 255, 0, brightness);
+ 
+  // common anode so invert!
+  r = map(r, 0, 255, 255, 0);
+  g = map(g, 0, 255, 255, 0);
+  b = map(b, 0, 255, 255, 0);
+  Serial.print("R = "); Serial.print(r, DEC);
+  Serial.print(" G = "); Serial.print(g, DEC);
+  Serial.print(" B = "); Serial.println(b, DEC);
+  analogWrite(lcdRedPin, r);
+  analogWrite(lcdGreenPin, g);
+  analogWrite(lcdBluePin, b);
+}
 void setup()
 {
+  pinMode(lcdRedPin, OUTPUT);
+  pinMode(lcdGreenPin, OUTPUT);
+  pinMode(lcdBluePin, OUTPUT);
+  
+  
+  brightness = 100;
   readEEPROMValues();
   Serial.begin(9600);  //Start the Serial connection with the computer
   //to view the result open the Serial monitor
@@ -359,7 +392,7 @@ void setup()
   pinMode(pinWarmer,INPUT);            // default mode is INPUT - to raise tempSetPointF
   digitalWrite(pinCooler, HIGH);     // Turn on the internal pull-up resistor
   digitalWrite(pinWarmer, HIGH);    // Turn on the internal pull-up resistor
-  lcd.begin(16, 2); //let the LCD library know screen is 16 characters
+  lcd.begin(20, 4); //let the LCD library know screen is 16 characters
   //wide and 2 lines tall
   pinMode(pinRelay, OUTPUT); //setting up pin for relay
   stateChangeMillis = millis(); // so that we automatically wait before turning on
@@ -372,6 +405,7 @@ void setup()
 // Main program loop                                               //
 // =============================================================== //
 void loop(){
+  setBacklight(255,0,0);
   // check if cooler or warmer buttons being pressed, LOW state (using interrupts did not work well)
   int pinCoolerStatus = digitalRead(pinCooler);
   int pinWarmerStatus = digitalRead(pinWarmer);
