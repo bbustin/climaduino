@@ -463,6 +463,21 @@ void loop(){
   Serial.print("},");
   Serial.print("\"status\":{");
   Serial.print("\"state_change_allowed\":\"");
+if (averageTemp == (tempSetPointF + 5)) {
+	setBacklight(255,0,0);
+	}
+else if (averageTemp == (tempSetPointF - 5)) {
+	setBacklight(0,0,255);
+	}
+else if (averageTemp == (tempSetPointF + 1)) {
+	setBacklight(0,0,255);
+	}
+else if (averageTemp == (tempSetPointF - 1)) {
+	setBacklight(0,255,0);
+	}
+else if (averageTemp == (tempSetPointF + 1)) {
+	setBacklight(0,255,0);
+	}
   if (stateChangeAllowed){
     Serial.print("Y");
     thermostat();
