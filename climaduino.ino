@@ -246,6 +246,10 @@ float averageReadings(){
   }
 }
 
+//========================================================
+// Can we externalize this code into the cpp / h files you created already?
+// TBD impliment standalone cpp/h files by BBUSTIN for thermostat() function
+//========================================================
 // Thermostat
 //// implements thermostat logic
 ////
@@ -463,7 +467,7 @@ void loop(){
   Serial.print("},");
   Serial.print("\"status\":{");
   Serial.print("\"state_change_allowed\":\"");
-//This is a little algorithm to determine set temp vs current temp
+// This is a little algorithm to determine set temp vs current temp
 // and then alter RGB backlight based on the input
 // if colder color = blue,  if hotter color = red, if close (within 1 degree) color = green
 if (averageTemp == (tempSetPointF + 5)) {
