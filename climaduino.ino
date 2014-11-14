@@ -378,8 +378,7 @@ void setup()
   pinMode(lcdRedPin, OUTPUT);
   pinMode(lcdGreenPin, OUTPUT);
   pinMode(lcdBluePin, OUTPUT);
-  
-  
+  setBacklight(255,0,0);
   brightness = 100;
   readEEPROMValues();
   Serial.begin(9600);  //Start the Serial connection with the computer
@@ -396,13 +395,14 @@ void setup()
     // useful for cases where the power goes out while the compressor is running
   lcd.setCursor(0,0);
   lcd.print("Initializing..."); //print to LCD
+  delay(2000);
 }
 
 // =============================================================== //
 // Main program loop                                               //
 // =============================================================== //
 void loop(){
-  setBacklight(255,0,0);
+  
   // check if cooler or warmer buttons being pressed, LOW state (using interrupts did not work well)
   int pinCoolerStatus = digitalRead(pinCooler);
   int pinWarmerStatus = digitalRead(pinWarmer);
