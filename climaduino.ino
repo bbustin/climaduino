@@ -378,7 +378,7 @@ void setup()
   pinMode(lcdRedPin, OUTPUT);
   pinMode(lcdGreenPin, OUTPUT);
   pinMode(lcdBluePin, OUTPUT);
-  setBacklight(255,0,0);
+  setBacklight(255,0,0); // set a color so we can read our bootup text
   brightness = 100;
   readEEPROMValues();
   Serial.begin(9600);  //Start the Serial connection with the computer
@@ -463,6 +463,9 @@ void loop(){
   Serial.print("},");
   Serial.print("\"status\":{");
   Serial.print("\"state_change_allowed\":\"");
+//This is a little algorithm to determine set temp vs current temp
+// and then alter RGB backlight based on the input
+// if colder color = blue,  if hotter color = red, if close (within 1 degree) color = green
 if (averageTemp == (tempSetPointF + 5)) {
 	setBacklight(255,0,0);
 	}
