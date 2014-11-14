@@ -22,13 +22,13 @@ const unsigned long minOffTimeMillis = 180000; //cooling minimum off time before
 const int numberOfReadings = 2; // how many readings to average
 const int delayBetweenReadingsMillis = 2000; // how long to wait between readings (DHT22 needs 2 seconds)
 // pins to use
-const int pinRelay = 10; // pin for relay
-const int pinSensor = 9; // pin for temperature and humidity (DHT-22)
+const int pinRelay = 2; // pin for relay
+const int pinSensor = 12; // pin for temperature and humidity (DHT-22)
 //const int pinTempChange = A1; // pin for temp setting potentiometer
-const int pinCooler = 11;
+const int pinCooler = 18;
 // pinCooler - button to trigger 1 degree cooler is 2. interrupt 0
 //// hardcoded to pin 2 on the Uno http://arduino.cc/en/Reference/attachInterrupt
-const int pinWarmer = 12;
+const int pinWarmer = 19;
 // pinWarmer - button to trigger 1 degree hotter is 3. interrupt 1
 //// hardcoded to pin 3 on the Uno http://arduino.cc/en/Reference/attachInterrupt
 const int lcdRS = 34;
