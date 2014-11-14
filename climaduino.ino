@@ -31,8 +31,8 @@ const int pinCooler = 11;
 const int pinWarmer = 12;
 // pinWarmer - button to trigger 1 degree hotter is 3. interrupt 1
 //// hardcoded to pin 3 on the Uno http://arduino.cc/en/Reference/attachInterrupt
-const int lcdRS = 2;
-const int lcdEnable = 3;
+const int lcdRS = 34;
+const int lcdEnable = 35;
 const int lcdD4 = 4;
 const int lcdD5 = 5;
 const int lcdD6 = 6;
