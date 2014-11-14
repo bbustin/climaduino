@@ -19,8 +19,13 @@ const int humidityOverCooling = 5; // degrees cooler than setpoint allowed to de
 const unsigned long minRunTimeMillis = 600000; // cooling minimum runtime allowed (prevent short cycles) - unsigned long to match millis datatype
 const unsigned long minOffTimeMillis = 180000; //cooling minimum off time before can run again (protect compressor) - unsigned long to match millis datatype
 // parameters for averaging readings
-const int numberOfReadings = 2; // how many readings to average
-const int delayBetweenReadingsMillis = 2000; // how long to wait between readings (DHT22 needs 2 seconds)
+const int numberOfReadings = 1; // how many readings to average
+const int delayBetweenReadingsMillis = 1000; // how long to wait between readings (DHT22 needs 2 seconds)
+/* Data-bus's free status is high voltage level. When communication between MCU and DHT22 begin, program of
+MCU will transform data-bus's voltage level from high to low level and this process must beyond at least 1ms to
+ensure DHT22 could detect MCU's signal, then MCU will wait 20-40us for DHT22's response. 
+Based on above data we can poll this sensor much faster than 2 seconds 
+*/
 // pins to use
 const int pinRelay = 2; // pin for relay
 const int pinSensor = 12; // pin for temperature and humidity (DHT-22)
