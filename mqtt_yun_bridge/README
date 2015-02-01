@@ -1,0 +1,47 @@
+These files are installed on the Arduino Yún. They interact with the Climaduino code using the bridge
+library. The code uses MQTT to both publish the current readings as well as to retreive new readings.
+
+The process to install these files on the Yún are as follows:
+- SSH into the Yún (username root, password is whatever you set)
+
+- update opkg
+-- opkg update
+
+-- install distribute (easy_install)
+-- opkg install python-openssl
+-- opkg install distribute
+
+- Install the Paho MQTT client
+-- easy_install paho-mqtt
+
+- Optionally install SFTP to make it easier to transfer and edit files
+-- opkg install openssh-sftp-server
+
+- edit so going to right MQTT broker
+
+- place receive_settings.py and send_settings.py in /root on the Arduino Yún
+
+- edit /etc/rc.local and add the following line before the line 'exit 0':
+-- python /root/receive_settings.py&
+
+- reboot the Yún
+-- reboot
+
+## Stuff I'm not sure we really want to do...
+- Install the python serial library
+-- easy_install pySerial
+
+- Disable console on serial - we want the Python to directly interface with the Arduino
+code over serial. The serial port is otherwise in use and unavailable to us. Note: this
+will disable the Arduino bridge library.
+-- vi /etc/inittab
+-- down arrow 3 times
+-- press i
+-- you should be at the following line ttyATH0::askfirst:/bin/ash --login
+-- press #
+-- press esc
+-- press :wq
+
+- reboot the Linux part of the Yún
+-- reboot
+

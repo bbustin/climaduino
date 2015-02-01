@@ -11,6 +11,7 @@
 #include <avr/wdt.h> //for WatchDog timer
 #include <Bridge.h> //for Arduino Yun bridge
 #include <Console.h> //for Arduino Yun console (like Serial over WiFi)
+#include <Process.h>
 
 // =============================================================== //
 // statically defined variables - these can not be changed later   //
@@ -136,10 +137,10 @@ void updateParametersFromYun() {
   char _charHumiditySetPoint[3]; // percent relative humidity set point in in Yun Key/Value store
   char _charOperationMode[2]; // mode setting in Yun Key/Value store
   char _charFanMode[2]; // fan mode setting in Yun Key/Value store
-  Bridge.get("tempSetPoint", _charTempSetPointF, 3);
-  Bridge.get("humiditySetPoint", _charHumiditySetPoint, 3);
-  Bridge.get("mode", _charOperationMode, 2);
-  Bridge.get("fanMode", _charFanMode, 2);
+  Bridge.get("settings/tempSetPoint", _charTempSetPointF, 3);
+  Bridge.get("settings/humiditySetPoint", _charHumiditySetPoint, 3);
+  Bridge.get("settings/mode", _charOperationMode, 2);
+  Bridge.get("settings/fanMode", _charFanMode, 2);
   int _tempSetPointF = atoi(_charTempSetPointF);
   int _humiditySetPoint = atoi(_charHumiditySetPoint);
   int _operationMode = atoi(_charOperationMode);
@@ -165,10 +166,10 @@ void updateParametersToYun() {
   char _charHumiditySetPoint[3]; // percent relative humidity set point in Yun Key/Value store
   char _charOperationMode[2]; // mode setting in Yun Key/Value store
   char _charFanMode[2]; // fan mode setting in Yun Key/Value store
-  Bridge.get("tempSetPoint", _charTempSetPointF, 3);
-  Bridge.get("humiditySetPoint", _charHumiditySetPoint, 3);
-  Bridge.get("mode", _charOperationMode, 2);
-  Bridge.get("fanMode", _charFanMode, 2);
+  Bridge.get("settings/tempSetPoint", _charTempSetPointF, 3);
+  Bridge.get("settings/humiditySetPoint", _charHumiditySetPoint, 3);
+  Bridge.get("settings/mode", _charOperationMode, 2);
+  Bridge.get("settings/fanMode", _charFanMode, 2);
   int _tempSetPointF = atoi(_charTempSetPointF);
   int _humiditySetPoint = atoi(_charHumiditySetPoint);
   int _operationMode = atoi(_charOperationMode);
@@ -294,10 +295,10 @@ void setup()
   thermostat.humidityOverCooling = humidityOverCooling;
   thermostat.minRunTimeMillis = minRunTimeMillis;
   thermostat.minOffTimeMillis = minOffTimeMillis;
-  Bridge.put("tempSetPoint", String(tempSetPointF));
-  Bridge.put("humiditySetPoint", String(humiditySetPoint));
-  Bridge.put("mode", String(operationMode));
-  Bridge.put("fanMode", String(fanMode));
+  Bridge.put("settings/tempSetPoint", String(tempSetPointF));
+  Bridge.put("settings/humiditySetPoint", String(humiditySetPoint));
+  Bridge.put("settings/mode", String(operationMode));
+  Bridge.put("settings/fanMode", String(fanMode));
   dht.begin(); //start up DHT library;
 }
 
@@ -324,15 +325,14 @@ void loop(){
   thermostat.Control(averageTemp, averageHumidity);//run thermostat logic
   wdt_reset(); //reset watchdog timer
   // put data in the Arduino Yun key/value store
-  Bridge.put("temperature", String(averageTemp));
-  Bridge.put("humidity", String(averageHumidity));
-//  Bridge.put("tempSetPoint", String(tempSetPointF));
-//  Bridge.put("humiditySetPoint", String(humiditySetPoint));
-//  Bridge.put("mode", String(operationMode));
-  Bridge.put("currentlyRunning", String(thermostat.CurrentlyRunning()));
-  Bridge.put("stateChangeAllowed", String(thermostat.StateChangeAllowed()));
+  Bridge.put("readings/temperature", String(averageTemp));
+  Bridge.put("readings/humidity", String(averageHumidity));
+  Bridge.put("status/currentlyRunning", String(thermostat.CurrentlyRunning()));
+  Bridge.put("status/stateChangeAllowed", String(thermostat.StateChangeAllowed()));
   // Update EEPROM with any changes to operating parameters
   updateEEPROMValues();
+  Process p;
+  p.runShellCommand("python /root/send_readings.py");
   wdt_reset(); //reset watchdog timer
 }
 
