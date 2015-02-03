@@ -1,5 +1,4 @@
-import paho.mqtt.client as mqtt
-import socket
+import json, socket
 import time
 
 # get the Climaduino's hostname
@@ -14,27 +13,29 @@ sys.path.insert(0, '/usr/lib/python2.7/bridge/')
 
 from bridgeclient import BridgeClient as bridgeclient
 from tcp import TCPJSONClient
-json = TCPJSONClient('127.0.0.1', 5700)
+yun_bridge = TCPJSONClient('127.0.0.1', 5700)
 ###
 
-client = mqtt.Client()
+def send_readings(data):
+	# Connect to the server
+	s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+	s.connect('/tmp/climaduino_mqtt_bridge')
+	s.send(json.dumps(data))
+	s.close()
 
-client.connect("test.mosquitto.org", 1883, 60)
-
-json.send({'command': 'get'})
+yun_bridge.send({'command': 'get'})
 timeout = 10
 while timeout >= 0:
-  r = json.recv()
+  r = yun_bridge.recv()
   if not r is None:
     timeout = -1
   timeout -= 0.1
   time.sleep(0.1)
-json.close()
+yun_bridge.close()
 
-for (key, value) in r['value'].items():
-	if any(path in key for path in ['readings/', 'status/']):
-		print(client.publish("{}{}".format(climaduino_path, key), value))
-		time.sleep(0.1) # does not seem to work reliably without a slight pause
-		print("{}{} => {}".format(climaduino_path, key, value))
-
-client.disconnect()
+if r:
+	readings = {}
+	for (key, value) in r['value'].items():
+		if any(path in key for path in ['readings/', 'status/']):
+			readings["{}{}".format(climaduino_path, key)] = value
+	send_readings(readings)
