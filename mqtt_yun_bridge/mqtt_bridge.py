@@ -6,7 +6,7 @@ import SocketServer, threading, socket, time, os, json
 previous_readings = set()
 client = mqtt.Client()
 
-def open_socket(socket_address):
+def open_SocketServer(socket_address, BaseRequestHandler):
 	# clean up stale socket if there is one
 	try:
 		os.remove(socket_address)
@@ -18,7 +18,7 @@ def open_socket(socket_address):
 	while not connected and tries <= 20:
 		tries += 1
 		try:
-			server = SocketServer.UnixStreamServer(socket_address, ReceiveReadingsHandler)
+			server = SocketServer.UnixStreamServer(socket_address, handler)
 			t = threading.Thread(target=server.serve_forever)
 			t.setDaemon(True) # don't hang on exit
 			t.start()
@@ -121,7 +121,7 @@ if __name__ == "__main__":
 	hostname = socket.gethostname()
 	climaduino_path = "climaduino/{}/".format(hostname)
 
-	open_socket('/tmp/climaduino_mqtt_bridge')
+	open_SocketServer('/tmp/climaduino_mqtt_bridge', ReceiveReadingsHandler)
 	yun_bridge = yun_connect(hostname)
 	mqtt_connect("test.mosquitto.org")
 
