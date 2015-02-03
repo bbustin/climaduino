@@ -1,3 +1,4 @@
+# TODO: Detect when connection to broker lost and reconnect!
 import paho.mqtt.client as mqtt
 import socket
 
@@ -23,7 +24,7 @@ def on_connect(client, userdata, flags, rc):
 
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
-    print(msg.topic+" "+str(msg.payload))
+    print(msg.topic+" "+msg.payload)
     json.send({'command':'put', 'key':'{}'.format(msg.topic.replace(climaduino_path, "")), 'value':'{}'.format(msg.payload)})
 
 client = mqtt.Client()
