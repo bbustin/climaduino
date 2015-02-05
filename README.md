@@ -9,8 +9,6 @@ Living in South Florida, humidity is a huge issue and the Climaduino was designe
 
 To protect the compressor and be more energy efficient, there is a minimum off time and minimum run time to prevent short cycling. The minimum run time can sometimes lead to a slight bit of overcooling or can lead to humidity going a little below the setpoint, but this appears to be pretty minimal.
 
-There is an LCD display with the current temperature and humidity setpoints. Two buttons allow the temperature to be raised or lowered. There is currently no way to directly change the humidity setpoint or the mode without the Controller component. Tweaking the code and uploading it to the Arduino is one way to change the mode. Another way is to use the Arduino IDE to send commands to the thermostat. The next paragraph provides some more detail.
-
 Setup
 =====
 Load the climaduino sketch onto the Arduino Yún, then please refer to the README file in the mqtt_yun_bridge folder.
