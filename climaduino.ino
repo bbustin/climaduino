@@ -45,8 +45,6 @@ int humiditySetPoint; // percent relative humidity
 float averageTemp = NAN; // average temperature
 float averageHumidity = NAN; // average humidity
 boolean currentlyRunning = false; // track whether system is currently running
-boolean localParameterOverride = false; // set to true if a local change to operating parameters
-                                      //// was made that will need to be sent to the Yun
 unsigned long stateChangeMillis; // time in millis when system either turned on or off
 int operationMode = 0; // 0 cooling + humidity, 1 humidity control, 5 heating, 9 off
 boolean fanMode = false; // 0 fan auto, 1 fan on
@@ -81,55 +79,6 @@ void watchdogSetup(void) {
   (0<<WDP3) | (1<<WDP2) | (1<<WDP1) | (0<<WDP0);
   sei(); }
 
-// Reads back values for our settings from EEPROM and
-//// populates the proper global variables. If The EEPROM locations have
-//// not yet been set, then returns default values.
-////
-//// memory locations:
-////// 0 - operationMode (default 0)
-////// 1 - tempSetPointF (default 78)
-////// 2 - humiditySetPoint (default 55)
-void readEEPROMValues() {
-  // get operationMode from 0, tempSetPointF from 1, and humiditySetPoint from 2
-  operationMode = EEPROM.read(0);
-  tempSetPointF = EEPROM.read(1);
-  humiditySetPoint = EEPROM.read(2);
-  
-  // NOTE: ON THE ARDUINO YUN, EEPROM VALUES ARE CLEARED WHEN A SKETCH IS UPLOADED
-  
-  // if any values are 255, it means the address space in EEPROM
-  //// has not been written yet. In that case, let's set some sane
-  //// defaults which will eventually be written to EEPROM by another function.
-  if (operationMode == 255) {
-    operationMode = 9;
-  }
-  if (tempSetPointF == 255) {
-    tempSetPointF = 77;
-  }
-  if (humiditySetPoint == 255) {
-    humiditySetPoint = 55;
-  }
-}
-
-// Examines current global variables and if different from the values
-//// in EEPROM, will update the appropriate memory address in EEPROM
-////
-//// memory locations:
-////// 0 - operationMode
-////// 1 - tempSetPointF
-////// 2 - humiditySetPoint
-void updateEEPROMValues() {
-  if (operationMode != EEPROM.read(0)) {
-    EEPROM.write(0, operationMode);
-  }
-  if (tempSetPointF != EEPROM.read(1)) {
-    EEPROM.write(1, tempSetPointF);
-  }
-  if (humiditySetPoint != EEPROM.read(2)) {
-    EEPROM.write(2, humiditySetPoint);
-  }
-}
-
 // Updates current parameters from the Arduino Yun's key/value store
 //// If they differ from the current parameters
 void updateParametersFromYun() {
@@ -156,35 +105,6 @@ void updateParametersFromYun() {
   }
   if (humiditySetPoint != _humiditySetPoint) {
     humiditySetPoint = _humiditySetPoint;
-  }
-}
-
-// Updates current parameters to the Arduino Yun's key/value store
-//// If it differs from the current local parameters
-void updateParametersToYun() {
-  char _charTempSetPointF[3]; // temperature set point in Yun Key/Value store.
-  char _charHumiditySetPoint[3]; // percent relative humidity set point in Yun Key/Value store
-  char _charOperationMode[2]; // mode setting in Yun Key/Value store
-  char _charFanMode[2]; // fan mode setting in Yun Key/Value store
-  Bridge.get("settings/tempSetPoint", _charTempSetPointF, 3);
-  Bridge.get("settings/humiditySetPoint", _charHumiditySetPoint, 3);
-  Bridge.get("settings/mode", _charOperationMode, 2);
-  Bridge.get("settings/fanMode", _charFanMode, 2);
-  int _tempSetPointF = atoi(_charTempSetPointF);
-  int _humiditySetPoint = atoi(_charHumiditySetPoint);
-  int _operationMode = atoi(_charOperationMode);
-  bool _fanMode = atoi(_charFanMode) !=0;
-  if (operationMode != _operationMode) {
-    Bridge.put("mode", String(operationMode));
-  }
-  if (fanMode != _fanMode) {
-    Bridge.put("fanMode", String(fanMode));
-  }
-  if (tempSetPointF != _tempSetPointF) {
-    Bridge.put("tempSetPoint",  String(tempSetPointF));
-  }
-  if (humiditySetPoint != _humiditySetPoint) {
-    Bridge.put("humiditySetPoint", String(humiditySetPoint));
   }
 }
 
@@ -228,57 +148,6 @@ float averageReadings(){
   }
 }
 
-/*
-  SerialEvent occurs whenever a new data comes in the
- hardware serial RX.  This routine is run between each
- time loop() runs, so using delay inside loop can delay
- response.  Multiple bytes of data may be available.
- */
- // Adapted from SerialEvent example sketch  Created 9 May 2011 by Tom Igoe
-void serialEvent() {
-  // THIS REALLY SHOULD SANITIZE INPUT!!
-  while (Serial.available()) {
-    // get the new byte:
-    char inChar = (char)Serial.read(); 
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag
-    // so the main loop can do something about it:
-    if (inChar == 'F') { // input to change temperature
-      if (inputString.length() <= 3){ // 2 digits and an F
-        // remove last character and turn into a float
-        inputString = inputString.substring(0, 2);
-        char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
-        inputString.toCharArray(inputCharArray, 3);
-        tempSetPointF = (float)atoi(inputCharArray);
-      }
-      inputString = ""; // clear inputString
-    }
-    if (inChar == '%') { // input to change humidity set point
-      if (inputString.length() <= 3){ // 2 digits and a %
-        // remove last character and turn into an integer
-        inputString = inputString.substring(0, inputString.length() - 1);
-        //char inputCharArray[inputString.length() + 1];
-        char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
-        inputString.toCharArray(inputCharArray, 3);
-        humiditySetPoint = atoi(inputCharArray);
-      }
-      inputString = ""; // clear inputString
-    }
-    if (inChar == 'M') { // input to change operation mode
-      if (inputString.length() <= 2){ // 1 digits and an M
-        // remove last character and turn into an integer
-        inputString = inputString.substring(0, inputString.length() - 1);
-        //char inputCharArray[inputString.length() + 1];
-        char inputCharArray[2]; //only allow values with 1 digit (and 1 null for atoi)
-        inputString.toCharArray(inputCharArray, 2);
-        operationMode = atoi(inputCharArray);
-       }
-      inputString = ""; // clear inputString
-    }
-  }
-}
-
 // =============================================================== //
 // Setup                                                           //
 // =============================================================== //
@@ -288,17 +157,12 @@ void setup()
   Bridge.begin();
   Console.begin(); // Start the console over WiFi connection
   Serial.begin(9600);  //Start the Serial connection with the computer
-  readEEPROMValues();
   //Taking the values defined above in the sketch and applying them to the Thermostat object
   thermostat.tempHysteresis = tempHysteresis;
   thermostat.humidityHysteresis = humidityHysteresis;
   thermostat.humidityOverCooling = humidityOverCooling;
   thermostat.minRunTimeMillis = minRunTimeMillis;
   thermostat.minOffTimeMillis = minOffTimeMillis;
-  Bridge.put("settings/tempSetPoint", String(tempSetPointF));
-  Bridge.put("settings/humiditySetPoint", String(humiditySetPoint));
-  Bridge.put("settings/mode", String(operationMode));
-  Bridge.put("settings/fanMode", String(fanMode));
   dht.begin(); //start up DHT library;
 }
 
@@ -307,16 +171,7 @@ void setup()
 // =============================================================== //
 void loop(){
   wdt_reset(); //reset watchdog timer
-  // if settings were changed locally, send this to the Yun and do not
-  //// pull parameters for it for this loop. Next loop the Yun will already have
-  //// the new overridden values and can stop ignoring the Yun's values.
-  if (localParameterOverride) {
-    updateParametersToYun();
-    localParameterOverride = false;
-  }
-  else {
-    updateParametersFromYun();
-  }
+  updateParametersFromYun();
   thermostat.mode = operationMode;
   thermostat.tempSetPoint = tempSetPointF;
   thermostat.humiditySetPoint = humiditySetPoint;
@@ -329,8 +184,6 @@ void loop(){
   Bridge.put("readings/humidity", String(averageHumidity));
   Bridge.put("status/currentlyRunning", String(thermostat.CurrentlyRunning()));
   Bridge.put("status/stateChangeAllowed", String(thermostat.StateChangeAllowed()));
-  // Update EEPROM with any changes to operating parameters
-  updateEEPROMValues();
   Process p;
   p.runShellCommand("python /root/send_readings.py");
   wdt_reset(); //reset watchdog timer
@@ -340,3 +193,132 @@ ISR(WDT_vect)
 { // what happens when the watchdog interrupt is triggered
   
 }
+
+// Unused legacy code that may be useful at a later point
+// Reads back values for our settings from EEPROM and
+//// populates the proper global variables. If The EEPROM locations have
+//// not yet been set, then returns default values.
+////
+//// memory locations:
+////// 0 - operationMode (default 0)
+////// 1 - tempSetPointF (default 78)
+////// 2 - humiditySetPoint (default 55)
+//void readEEPROMValues() {
+//  // get operationMode from 0, tempSetPointF from 1, and humiditySetPoint from 2
+//  operationMode = EEPROM.read(0);
+//  tempSetPointF = EEPROM.read(1);
+//  humiditySetPoint = EEPROM.read(2);
+//  
+//  // NOTE: ON THE ARDUINO YUN, EEPROM VALUES ARE CLEARED WHEN A SKETCH IS UPLOADED
+//  
+//  // if any values are 255, it means the address space in EEPROM
+//  //// has not been written yet. In that case, let's set some sane
+//  //// defaults which will eventually be written to EEPROM by another function.
+//  if (operationMode == 255) {
+//    operationMode = 9;
+//  }
+//  if (tempSetPointF == 255) {
+//    tempSetPointF = 77;
+//  }
+//  if (humiditySetPoint == 255) {
+//    humiditySetPoint = 55;
+//  }
+//}
+
+// Examines current global variables and if different from the values
+//// in EEPROM, will update the appropriate memory address in EEPROM
+////
+//// memory locations:
+////// 0 - operationMode
+////// 1 - tempSetPointF
+////// 2 - humiditySetPoint
+//void updateEEPROMValues() {
+//  if (operationMode != EEPROM.read(0)) {
+//    EEPROM.write(0, operationMode);
+//  }
+//  if (tempSetPointF != EEPROM.read(1)) {
+//    EEPROM.write(1, tempSetPointF);
+//  }
+//  if (humiditySetPoint != EEPROM.read(2)) {
+//    EEPROM.write(2, humiditySetPoint);
+//  }
+//}
+//// Updates current parameters to the Arduino Yun's key/value store
+////// If it differs from the current local parameters
+//void updateParametersToYun() {
+//  char _charTempSetPointF[3]; // temperature set point in Yun Key/Value store.
+//  char _charHumiditySetPoint[3]; // percent relative humidity set point in Yun Key/Value store
+//  char _charOperationMode[2]; // mode setting in Yun Key/Value store
+//  char _charFanMode[2]; // fan mode setting in Yun Key/Value store
+//  Bridge.get("settings/tempSetPoint", _charTempSetPointF, 3);
+//  Bridge.get("settings/humiditySetPoint", _charHumiditySetPoint, 3);
+//  Bridge.get("settings/mode", _charOperationMode, 2);
+//  Bridge.get("settings/fanMode", _charFanMode, 2);
+//  int _tempSetPointF = atoi(_charTempSetPointF);
+//  int _humiditySetPoint = atoi(_charHumiditySetPoint);
+//  int _operationMode = atoi(_charOperationMode);
+//  bool _fanMode = atoi(_charFanMode) !=0;
+//  if (operationMode != _operationMode) {
+//    Bridge.put("mode", String(operationMode));
+//  }
+//  if (fanMode != _fanMode) {
+//    Bridge.put("fanMode", String(fanMode));
+//  }
+//  if (tempSetPointF != _tempSetPointF) {
+//    Bridge.put("tempSetPoint",  String(tempSetPointF));
+//  }
+//  if (humiditySetPoint != _humiditySetPoint) {
+//    Bridge.put("humiditySetPoint", String(humiditySetPoint));
+//  }
+//}
+
+///*
+//  SerialEvent occurs whenever a new data comes in the
+// hardware serial RX.  This routine is run between each
+// time loop() runs, so using delay inside loop can delay
+// response.  Multiple bytes of data may be available.
+// */
+// // Adapted from SerialEvent example sketch  Created 9 May 2011 by Tom Igoe
+//void serialEvent() {
+//  // THIS REALLY SHOULD SANITIZE INPUT!!
+//  while (Serial.available()) {
+//    // get the new byte:
+//    char inChar = (char)Serial.read(); 
+//    // add it to the inputString:
+//    inputString += inChar;
+//    // if the incoming character is a newline, set a flag
+//    // so the main loop can do something about it:
+//    if (inChar == 'F') { // input to change temperature
+//      if (inputString.length() <= 3){ // 2 digits and an F
+//        // remove last character and turn into a float
+//        inputString = inputString.substring(0, 2);
+//        char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
+//        inputString.toCharArray(inputCharArray, 3);
+//        tempSetPointF = (float)atoi(inputCharArray);
+//      }
+//      inputString = ""; // clear inputString
+//    }
+//    if (inChar == '%') { // input to change humidity set point
+//      if (inputString.length() <= 3){ // 2 digits and a %
+//        // remove last character and turn into an integer
+//        inputString = inputString.substring(0, inputString.length() - 1);
+//        //char inputCharArray[inputString.length() + 1];
+//        char inputCharArray[3]; //only allow values with 2 digits (and 1 null for atoi)
+//        inputString.toCharArray(inputCharArray, 3);
+//        humiditySetPoint = atoi(inputCharArray);
+//      }
+//      inputString = ""; // clear inputString
+//    }
+//    if (inChar == 'M') { // input to change operation mode
+//      if (inputString.length() <= 2){ // 1 digits and an M
+//        // remove last character and turn into an integer
+//        inputString = inputString.substring(0, inputString.length() - 1);
+//        //char inputCharArray[inputString.length() + 1];
+//        char inputCharArray[2]; //only allow values with 1 digit (and 1 null for atoi)
+//        inputString.toCharArray(inputCharArray, 2);
+//        operationMode = atoi(inputCharArray);
+//       }
+//      inputString = ""; // clear inputString
+//    }
+//  }
+//}
