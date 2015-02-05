@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
 	open_SocketServer('/tmp/climaduino_mqtt_bridge', ReceiveReadingsHandler)
 	yun_bridge = yun_connect(hostname)
-	mqtt_connect("test.mosquitto.org")
+	mqtt_connect("localhost")
 
 
 
