@@ -35,6 +35,8 @@ part is rebooted, do the following (copied from http://playground.arduino.cc/Har
 
 	chmod +x /bin/reboot
 
+- mDNS resolution on Yún not currently working... edit /etc/hosts and add (replace <controller_ip>)
+-- <controller_ip> climaduino.local
 
 - reboot the Yún
 -- reboot

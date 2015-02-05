@@ -6,7 +6,7 @@ import SocketServer, threading, socket, time, os, json
 previous_readings = set()
 client = mqtt.Client()
 
-def open_SocketServer(socket_address, BaseRequestHandler):
+def open_SocketServer(socket_address, handler):
 	# clean up stale socket if there is one
 	try:
 		os.remove(socket_address)
