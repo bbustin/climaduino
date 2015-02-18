@@ -37,6 +37,7 @@ def mqtt_connect(host, port=1883, keep_alive=60):
 	client.on_connect = on_connect
 	client.on_message = on_message
 	client.on_disconnect = on_disconnect
+	client.will_set('{}status/comm_lost'.format(climaduino_path))
 	client.connect(host, port, keep_alive)
 
 	# Blocking call that processes network traffic, dispatches callbacks and
@@ -48,7 +49,6 @@ def mqtt_connect(host, port=1883, keep_alive=60):
 def yun_connect(hostname):
 	# get the Climaduino's hostname
 	hostname = socket.gethostname()
-	climaduino_path = "climaduino/{}/".format(hostname)
 	# way to get around bridge slowness
 	# from: http://forum.arduino.cc/index.php?topic=188998.0
 	###
