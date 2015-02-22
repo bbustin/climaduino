@@ -14,6 +14,9 @@ The process to install these files on the Yún are as follows:
 - Install the Paho MQTT client
 -- easy_install paho-mqtt
 
+- Install screen
+-- opkg install screen
+
 - Optionally install SFTP to make it easier to transfer and edit files
 -- opkg install openssh-sftp-server
 
@@ -22,7 +25,7 @@ The process to install these files on the Yún are as follows:
 - place receive_settings.py and send_settings.py in /root on the Arduino Yún
 
 - edit /etc/rc.local and add the following line before the line 'exit 0':
--- python /root/mqtt_bridge.py&
+-- screen -d -m -S mqtt_bridge python /root/mqtt_bridge.py
 
 - to improve reliability and reboot the Arduino part of the Yún when the Linux
 part is rebooted, do the following (copied from http://playground.arduino.cc/Hardware/Yun#rebootStability):

@@ -46,7 +46,7 @@ def mqtt_connect(host, port=1883, keep_alive=60):
 	# manual interface.
 	client.loop_forever()
 
-def yun_connect(hostname):
+def yun_connect(hostname, tries=3):
 	# get the Climaduino's hostname
 	hostname = socket.gethostname()
 	# way to get around bridge slowness
@@ -57,8 +57,53 @@ def yun_connect(hostname):
 
 	from bridgeclient import BridgeClient as bridgeclient
 	from tcp import TCPJSONClient
-	return(TCPJSONClient('127.0.0.1', 5700))
+
+	connected = False
+	try_number = 0
+
+	while not connected and try_number < tries:
+		try_number += 1
+		try:
+			print("Connecting to Yun - try {}".format(try_number))
+			yun_bridge = TCPJSONClient('127.0.0.1', 5700)
+		except socket.error:
+			print("Unable to connect to Yun")
+			yun_bridge = None
+			time.sleep(0.5)
+		else:
+			print("Connected to Yun")
+			connected = True
+
+	return(yun_bridge)
 	###
+
+def yun_connected():
+	# tests if Yun connection still good...
+
+	# If yun_bridge is None
+	if not yun_bridge:
+		return(False)
+
+	# test if good by trying to receive data
+	try:
+		yun_bridge.send({'command': 'get'})
+		timeout = 10
+		while timeout >= 0:
+		  result = yun_bridge.recv()
+		  if result:
+		    timeout = -1
+		  timeout -= 0.1
+		  time.sleep(0.1)
+	except socket.error:
+		print("Unexpectedly disconnected from Yun - socket error")
+		return(False)
+	else:
+		if result:
+			return(True)
+		else:
+			print("Unexpectedly disconnected from Yun - no data received")
+			return(False)
+
 
 ## MQTT handlers
 # The callback for when the client receives a CONNACK response from the server.
@@ -71,7 +116,15 @@ def on_connect(client, userdata, flags, rc):
 # The callback for when a PUBLISH message is received from the server.
 def on_message(client, userdata, msg):
 	print("setting: {}, {}".format(msg.topic, msg.payload))
-	yun_bridge.send({'command':'put', 'key':'{}'.format(msg.topic.replace(climaduino_path, "")), 'value':'{}'.format(msg.payload)})
+
+	yun_bridge = yun_connect(hostname)
+
+	# make sure we got a valid connection
+	if yun_bridge:
+		yun_bridge.send({'command':'put', 'key':'{}'.format(msg.topic.replace(climaduino_path, "")), 'value':'{}'.format(msg.payload)})
+		yun_bridge.close()
+	else:
+		print("Unable to set data...")
 
 def on_disconnect(client, userdata, rc):
 	if rc != 0:
@@ -120,9 +173,7 @@ class ReceiveReadingsHandler(SocketServer.BaseRequestHandler):
 if __name__ == "__main__":
 	hostname = socket.gethostname()
 	climaduino_path = "climaduino/{}/".format(hostname)
-
 	open_SocketServer('/tmp/climaduino_mqtt_bridge', ReceiveReadingsHandler)
-	yun_bridge = yun_connect(hostname)
 	mqtt_connect("climaduino.local")
 
 
