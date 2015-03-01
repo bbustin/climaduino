@@ -210,7 +210,7 @@ void Thermostat::Control(float temperature, float humidity)
 				}
 				break;
 			default: //if mode is unrecognized, power should be off
-				_changePowerState(false); //record when power state was changed as it could have previously been in a mode that used the compressor
+				_changePowerState(false);
 		}
 	}
 	return;
