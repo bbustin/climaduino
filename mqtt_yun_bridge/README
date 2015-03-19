@@ -1,6 +1,8 @@
 These files are installed on the Arduino Yún. They interact with the Climaduino code using the bridge
 library. The code uses MQTT to both publish the current readings as well as to retreive new readings.
 
+** Note: Please update the software on your Arduino Yún before following the steps below. http://arduino.cc/en/Tutorial/YunSysupgrade
+
 The process to install these files on the Yún are as follows:
 - SSH into the Yún (username root, password is whatever you set)
 
