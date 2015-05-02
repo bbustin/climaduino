@@ -11,6 +11,8 @@ To protect the compressor and be more energy efficient, there is a minimum off t
 
 Setup
 =====
+NOTE: Please use Arduino IDE <= 1.6.1. Does not work with Arduino IDE 1.6.2+ for some reason.
+
 Load the climaduino sketch onto the Arduino Yún, then please refer to the README file in the mqtt_yun_bridge folder.
 
 
