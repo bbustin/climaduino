@@ -7,7 +7,6 @@
 #include <DHT.h>
 #include <EEPROM.h>
 #include "Thermostat.h" // using " " instead of < > because importing from the sketch folder
-#include <MemoryFree.h>
 #include <avr/wdt.h> //for WatchDog timer
 #include <Bridge.h> //for Arduino Yun bridge
 #include <Console.h> //for Arduino Yun console (like Serial over WiFi)

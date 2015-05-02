@@ -171,6 +171,10 @@ void Thermostat::Control(float temperature, float humidity)
 				// first deal with humidity if too high, adjust _setPointF by humidityOverCooling
 				if (humidity > _humiditySetPoint) {
 					_setPointF -= humidityOverCooling; 
+					// if the system is not currently running, then also subtract the tempHysteresis
+					if (!_currentlyRunning) {
+						_setPointF -= tempHysteresis;
+					}
 				}
 				// check if temperature is higher than tempSetPoint
 				if (temperature > _setPointF) {
