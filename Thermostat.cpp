@@ -167,7 +167,7 @@ void Thermostat::Control(float temperature, float humidity)
 		}
 		// Actions to take for each mode
 		switch (mode){
-			case 0: // coolimg mode
+			case 0: // cooling mode
 				// first deal with humidity if too high, adjust _setPointF by humidityOverCooling
 				if (humidity > _humiditySetPoint) {
 					_setPointF -= humidityOverCooling; 
