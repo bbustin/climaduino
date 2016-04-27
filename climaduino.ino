@@ -114,15 +114,11 @@ void readEEPROMValues() {
 ////// 1 - tempSetPointF
 ////// 2 - humiditySetPoint
 void updateEEPROMValues() {
-  if (operationMode != EEPROM.read(0)) {
-    EEPROM.write(0, operationMode);
-  }
-  if (tempSetPointF != EEPROM.read(1)) {
-    EEPROM.write(1, tempSetPointF);
-  }
-  if (humiditySetPoint != EEPROM.read(2)) {
-    EEPROM.write(2, humiditySetPoint);
-  }
++    EEPROM.update(0, operationMode);
++  
++    EEPROM.update(1, tempSetPointF);
++    
++    EEPROM.update(2, humiditySetPoint);
 }
 
 // Updates current parameters from the Arduino Yun's key/value store
