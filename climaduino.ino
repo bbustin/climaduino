@@ -29,7 +29,7 @@ const int delayBetweenReadingsMillis = 2000; // how long to wait between reading
 const int pinSensor = 9; // pin for temperature and humidity (DHT-22)
 
 // time Proportional Output window
-unsigned long windowSize = 60000;
+unsigned long windowSize = 60000; //do not set over 60,000 because we set PID window size integer to half of this and integer is up to 32768
 
 // =============================================================== //
 // Global variables                                                //
@@ -131,7 +131,9 @@ void setup()
 
   dht.begin(); //start up DHT library;
 
-  myPID.SetSampleTime(numberOfReadings * delayBetweenReadingsMillis); //only need to sample when we are going to get new averages
+  //Only need to sample once per window, but we are sampling twice
+  //Why twice? Because WindowSize is larger than int can hold on Arduino
+  myPID.SetSampleTime(windowSize/2);
   myPID.SetOutputLimits(0, windowSize);
   myPID.SetMode(AUTOMATIC);
 }
@@ -170,7 +172,7 @@ void loop(){
       // SetTunings(P, I, D)
       // P = proportional: how it reacts to the present error
       // I = integral: how it uses past error values to "smooth out" the response
-      // D = derivative: "dampens" the response from large changes of the error
+      // D = derivative: "dampens" the response from large changes of between previous and present error
       // Helpful article: http://blog.nikmartin.com/2012/11/process-control-for-dummies-like-me.html
       if (((tempSetPointF - averageTemp) >= -0.5) && ((tempSetPointF - averageTemp) <= 0.5)) {
         myPID.SetTunings(50000,25,0.1);
