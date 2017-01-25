@@ -38,6 +38,7 @@ double tempSetPointF = 0; // temperature set point.
 double averageTemp = NAN; // average temperature
 double averageHumidity = NAN; // average humidity
 double heatOutput = 0; // duty cycle for heater
+double minimumRuntime = 20000; //minimum runtime allowed
 boolean currentlyRunning = false; // track whether system is currently running
 int operationMode = 9; // 5 heating, 9 off
 String inputString; // input from Serial
@@ -146,7 +147,8 @@ void driveOutput()
   { //time to shift the Relay Window
      windowStartTime += windowSize;
   }
-  if((heatOutput > 5000) && (heatOutput > (now - windowStartTime)))
+  //never burn for less than 20 seconds... trying to limit amount of inefficiency
+  if((heatOutput > minimumRuntime) && (heatOutput > (now - windowStartTime)))
   {
      digitalWrite(pinHeat,HIGH);
      currentlyRunning = true;
@@ -194,9 +196,14 @@ void loop(){
   Bridge.put("readings/temperature", String(averageTemp));
   Bridge.put("readings/humidity", String(averageHumidity));
   Bridge.put("status/currentlyRunning", String(currentlyRunning));
+
+  double outputPercent = 0;
+  if (heatOutput > minimumRuntime) {
+    float pct = map(heatOutput, 0, windowSize, 0, 1000);
+    outputPercent = pct/10;
+  }
   
-  float pct = map(heatOutput, 0, windowSize, 0, 1000);
-  Bridge.put("status/outputPercent", String(pct/10));
+  Bridge.put("status/outputPercent", String(outputPercent));
   
   Process p;
   p.runShellCommand("python /root/send_readings.py");
