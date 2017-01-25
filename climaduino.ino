@@ -29,7 +29,8 @@ const int delayBetweenReadingsMillis = 2000; // how long to wait between reading
 const int pinSensor = 9; // pin for temperature and humidity (DHT-22)
 
 // time Proportional Output window
-unsigned long windowSize = 60000; //do not set over 60,000 because we set PID window size integer to half of this and integer is up to 32768
+const unsigned long windowSize = 60000; //do not set over 60,000 because we set PID window size integer to half of this and integer is up to 32768
+const double minimumRuntime = 20000; //minimum runtime allowed
 
 // =============================================================== //
 // Global variables                                                //
@@ -38,7 +39,7 @@ double tempSetPointF = 0; // temperature set point.
 double averageTemp = NAN; // average temperature
 double averageHumidity = NAN; // average humidity
 double heatOutput = 0; // duty cycle for heater
-double minimumRuntime = 20000; //minimum runtime allowed
+
 boolean currentlyRunning = false; // track whether system is currently running
 int operationMode = 9; // 5 heating, 9 off
 String inputString; // input from Serial
@@ -135,7 +136,7 @@ void setup()
   //Only need to sample once per window, but we are sampling twice
   //Why twice? Because WindowSize is larger than int can hold on Arduino
   myPID.SetSampleTime(windowSize/2);
-  myPID.SetOutputLimits(0, windowSize);
+  myPID.SetOutputLimits(minimumRuntime-1, windowSize);
   myPID.SetMode(AUTOMATIC);
 }
 
