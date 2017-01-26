@@ -30,7 +30,7 @@ const int pinSensor = 9; // pin for temperature and humidity (DHT-22)
 
 // time Proportional Output window
 const unsigned long windowSize = 60000; //do not set over 60,000 because we set PID window size integer to half of this and integer is up to 32768
-const double minimumRuntime = 20000; //minimum runtime allowed
+const double minimumRuntime = 40000; //minimum runtime allowed
 
 // =============================================================== //
 // Global variables                                                //
