@@ -16,7 +16,6 @@
 // =============================================================== //
 // statically defined variables - these can not be changed later   //
 // =============================================================== //
-const int DEVICEID = 1; //Device identifier so it can be distinguished from other zones
 
 // Arduino pins to trip relays
 const int pinHeat = 6; //Relay2 on Seeeduino v2.0 shield
@@ -148,7 +147,13 @@ void driveOutput()
   { //time to shift the Relay Window
      windowStartTime += windowSize;
   }
-  //never burn for less than 20 seconds... trying to limit amount of inefficiency
+
+  if(now - windowStartTime<0)
+  {
+    windowStartTime = now;
+  }
+  
+  //never burn for less than minimumRuntime... trying to limit amount of inefficiency
   if((heatOutput > minimumRuntime) && (heatOutput > (now - windowStartTime)))
   {
      digitalWrite(pinHeat,HIGH);
