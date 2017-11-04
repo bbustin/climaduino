@@ -142,17 +142,20 @@ void setup()
 void driveOutput()
 {
   long now = millis();
+
+  //to handle two edge cases that can happen when the heat mode is off for a while and then turned back on
+  // - millis() could overflow leading now - windowStartTime to be a negative number
+  // - now - windowStartTime could be greater than one window and thus advancing the window would not work
+  if(now - windowStartTime<0 || now - windowStartTime>(windowSize * 2))
+  {
+    windowStartTime = now;
+  }
   
   if(now - windowStartTime>windowSize)
   { //time to shift the Relay Window
      windowStartTime += windowSize;
   }
 
-  if(now - windowStartTime<0)
-  {
-    windowStartTime = now;
-  }
-  
   //never burn for less than minimumRuntime... trying to limit amount of inefficiency
   if((heatOutput > minimumRuntime) && (heatOutput > (now - windowStartTime)))
   {
